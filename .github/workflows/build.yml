@@ -92,8 +92,16 @@ jobs:
             > un avertissement au premier lancement (« Informations complémentaires »
             > → « Exécuter quand même »).
 
-            ### Contenu de cette version
-            Cinq modules : nettoyage de fichiers, surveillance mémoire, inventaire
-            des pilotes, Mode Jeu, optimisation système (démarrage + registre avec
-            sauvegarde obligatoire). Voir le `README` et `docs/LIMITES-TECHNIQUES.md`
-            pour les capacités et les limites honnêtes de chaque fonctionnalité.
+            ### Nouveautés v0.2
+            - 🌙/☀️ Thème sombre et clair basculable à chaud
+            - 📊 Barre de progression avec % lors de l'analyse
+            - 💾 Vue des lecteurs disponibles avec espace libre
+            - 🚀 Optimisation RAM avancée (purge Standby List, comme Wise Memory Optimizer)
+            - 🧩 Mises à jour de pilotes via Windows Update (WUApi)
+            - 🛠️ Onglet « Réparation rapide » : diagnostic en 6 points + corrections auto
+            - 🔄 Vérificateur de mises à jour intégré (téléchargement + installation depuis GitHub)
+            - Menu « CleanSlate ▾ » : À propos, Notes de version, Vérifier les mises à jour
+
+            ### Contenu complet
+            Six modules : nettoyage, mémoire, pilotes, Mode Jeu, optimisation système,
+            réparation rapide. Voir le `README` pour les détails.
