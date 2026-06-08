@@ -1,67 +1,74 @@
 # CleanSlate
 
-**CleanSlate** est un utilitaire d'optimisation et de nettoyage pour Windows 10/11
-(64 bits), inspiré de CCleaner. Interface en français, code modulaire et commenté.
+**CleanSlate** est un utilitaire open source d'optimisation et de nettoyage pour **Windows 10/11 (64 bits)**, écrit en **C# / .NET 8 + WPF**. Interface entièrement en français, code modulaire et commenté.
 
-> ⚠️ **Philosophie du projet : honnêteté technique.**
-> Beaucoup d'utilitaires de « boost PC » promettent des gains spectaculaires qui
-> n'existent pas. CleanSlate fait l'inverse : chaque fonctionnalité est accompagnée
-> d'une explication claire de **ce qu'elle fait réellement** et de **ses limites**.
-> Voir [`docs/LIMITES-TECHNIQUES.md`](docs/LIMITES-TECHNIQUES.md).
+> **Philosophie : honnêteté technique.**
+> Beaucoup d'utilitaires « boost PC » promettent des gains spectaculaires qui n'existent pas.
+> CleanSlate fait l'inverse : chaque fonctionnalité est accompagnée d'une explication claire
+> de **ce qu'elle fait réellement** et de **ses limites honnêtes**.
 
-## Sommaire
-- [État d'avancement](#état-davancement)
-- [Choix de la stack](#choix-de-la-stack-justifié)
-- [Architecture](#architecture)
-- [Compiler et lancer](#compiler-et-lancer)
-- [Sécurité](#sécurité)
-- [Limites techniques](#limites-techniques)
+---
 
-## État d'avancement
+## Téléchargement
 
-| Module | État | Détails |
-|---|---|---|
-| 1. Nettoyage fichiers temporaires | ✅ **Implémenté** | `%temp%`, cache navigateurs, logs Windows, corbeille, prefetch, miniatures. Aperçu + confirmation. |
-| 2. Détection pilotes obsolètes | ✅ **Implémenté** | Inventaire WMI complet + raccourcis Windows Update / recherche constructeur. Pas de fausse « dernière version » (voir docs). |
-| 3. Surveillance / libération RAM | ✅ **Implémenté** | Lecture temps réel (timer) ; libération possible avec avertissement honnête sur son inefficacité. |
-| 4. Mode Jeu | ✅ **Implémenté** | Suspension/reprise réversible des processus + services, snapshot persistant pour restauration après fermeture brutale. |
-| 5. Optimisation système | ✅ **Implémenté** | Démarrage (activer/désactiver réversible) + registre conservateur avec sauvegarde `.reg` **obligatoire** avant toute action. |
+**[Dernière Release — CleanSlate.exe](https://github.com/dorianskyfr/CLEANSLATE/releases/latest)**
 
-Les cinq modules sont implémentés derrière une interface multi-onglets. Voir la
-réserve ci-dessous sur la compilation.
+Exécutable **unique et autonome** (~70 Mo) — runtime .NET 8 + WPF inclus. Aucune installation requise, double-cliquez simplement.
 
-> ⚠️ **Compilation non vérifiée par l'auteur du commit.** Le code a été écrit et
-> relu sous Linux (sans SDK .NET, et WPF ne se construit que sous Windows). La
-> **CI GitHub Actions** (`.github/workflows/build.yml`, sur `windows-latest`)
-> compile, teste et publie l'exécutable à chaque push — c'est elle qui fait foi.
-> L'artefact `CleanSlate.exe` est téléchargeable depuis l'onglet **Actions**.
+> Windows SmartScreen peut afficher un avertissement au premier lancement (exécutable non signé).
+> Cliquez sur « Informations complémentaires » → « Exécuter quand même ».
 
-## Choix de la stack justifié
+---
 
-**Retenu : C# / .NET 8 + WPF (`net8.0-windows`).**
+## Fonctionnalités
 
-| Critère | C# .NET + WPF (retenu) | Electron | Python + Qt/Tkinter |
-|---|---|---|---|
-| Accès Win32 / WMI / registre | ✅ Natif (BCL + P/Invoke) | ⚠️ via add-ons natifs | ⚠️ via `pywin32`/`ctypes`, fragile |
-| Élévation UAC (manifest) | ✅ Intégré | ⚠️ contournements | ⚠️ relances manuelles |
-| Empreinte mémoire / démarrage | ✅ Légère, natif | ❌ ~150 Mo, Chromium | 🟡 moyenne |
-| UI moderne et thématisable | ✅ XAML/MVVM | ✅ HTML/CSS | 🟡 correcte |
-| Déploiement (single-file / AOT) | ✅ `dotnet publish` | ⚠️ gros bundle | ⚠️ PyInstaller |
-| Adéquation « outil système Windows » | ✅✅ idéale | ❌ surdimensionné | 🟡 |
+### Module 1 — Nettoyage de fichiers temporaires
+Analyse et supprime les fichiers inutiles accumulés par Windows et les navigateurs :
+- `%TEMP%` et `%WINDIR%\Temp`
+- Caches de navigateurs (Chrome, Edge, Firefox, Opera, Brave)
+- Cache des miniatures Windows
+- Corbeille (via l'API shell `SHEmptyRecycleBin`)
+- Journaux Windows (`%WINDIR%\Logs`)
+- Prefetch (`%WINDIR%\Prefetch`)
 
-**Pourquoi WPF plutôt qu'Electron** : un nettoyeur PC est avant tout de
-l'**intégration système profonde** (registre, services, WMI, API shell pour la
-corbeille, gestion de processus). .NET expose tout cela nativement, sans pont
-JS↔natif. Electron embarquerait un navigateur entier (≈150 Mo) pour un outil dont
-99 % de la valeur est côté système — mauvais compromis.
+**Fonctionnement en deux phases** : scan préalable (rien n'est supprimé) + confirmation explicite avec décompte des fichiers et de l'espace récupérable.
 
-**Pourquoi WPF plutôt que Python** : la distribution d'un binaire Windows propre,
-l'élévation UAC par manifest, et l'accès typé/robuste à WMI et au registre sont
-nettement plus solides en .NET.
+### Module 2 — Inventaire des pilotes
+Inventaire complet des pilotes installés via WMI (`Win32_PnPSignedDriver`) :
+- Nom du périphérique, version, date, fabricant, classe
+- Raccourci vers Windows Update pour chercher des mises à jour
 
-> Alternative envisageable : **WinUI 3 / Windows App SDK** pour un look Windows 11
-> plus natif. WPF reste choisi ici pour sa maturité, sa stabilité et son immense
-> base documentaire.
+> **Limite honnête** : il n'existe aucune API universelle et gratuite donnant « la dernière version officielle » d'un pilote. CleanSlate inventorie et délègue à Windows Update — pas de fausse comparaison inventée.
+
+### Module 3 — Surveillance et libération de RAM
+- Lecture en temps réel de la mémoire utilisée / disponible (rafraîchissement automatique)
+- Libération possible via `EmptyWorkingSet` (P/Invoke `psapi.dll`)
+
+> **Limite honnête** : sur Windows moderne, « vider la RAM » est généralement inutile voire contre-productif (le cache mémoire est bénéfique). La fonction est fournie avec un avertissement explicite.
+
+### Module 4 — Mode Jeu
+Optimisation temporaire des ressources pour les sessions de jeu :
+- Suspension réversible de processus non essentiels (P/Invoke `NtSuspendProcess` / `NtResumeProcess`)
+- Arrêt / redémarrage de services sélectionnés
+- Snapshot JSON persistant pour restauration automatique après fermeture brutale
+- Restauration complète en un clic
+
+> **Limite honnête** : les gains dépendent fortement de la machine. CleanSlate se limite à une liste sûre et restaure systématiquement l'état initial.
+
+### Module 5 — Optimisation système
+#### 5a — Gestion du démarrage
+- Liste les programmes au démarrage (clés `Run` HKCU + HKLM + dossier Startup)
+- Activation / désactivation **réversible** : les entrées sont déplacées dans une clé de sauvegarde CleanSlate, jamais supprimées définitivement
+- Restauration en un clic
+
+#### 5b — Registre conservateur
+- Analyse les entrées orphelines du registre
+- **Sauvegarde `.reg` obligatoire** avant toute modification (export `reg.exe`)
+- Restauration en un clic via `reg.exe import`
+
+> **Limite honnête** : le gain de performance du nettoyage de registre est quasi nul en pratique. La fonction existe mais la sauvegarde est imposée et l'avertissement est affiché.
+
+---
 
 ## Architecture
 
@@ -69,109 +76,165 @@ nettement plus solides en .NET.
 CleanSlate/
 ├── CleanSlate.sln
 ├── docs/
-│   ├── ARCHITECTURE.md          # Détail des couches et du flux de données
-│   └── LIMITES-TECHNIQUES.md    # Limites honnêtes, fonctionnalité par fonctionnalité
+│   ├── ARCHITECTURE.md          # Diagrammes de flux et couches
+│   └── LIMITES-TECHNIQUES.md    # Limites honnêtes par fonctionnalité
 ├── src/
-│   ├── CleanSlate.Core/         # Logique métier — AUCUNE dépendance UI
-│   │   ├── Abstractions/        # Interfaces (ICleaningProvider, IBackupService…)
+│   ├── CleanSlate.Core/         # Logique métier — zéro dépendance UI
+│   │   ├── Abstractions/        # Interfaces (ICleaningProvider, IActionLogger…)
 │   │   ├── Models/              # CleanableItem, ScanResult, CleanResult…
-│   │   ├── Cleaning/            # Module 1 (FONCTIONNEL) : providers de nettoyage
-│   │   │   ├── FileCleaningProviderBase.cs
-│   │   │   ├── CleaningTarget.cs
+│   │   ├── Cleaning/            # Module 1 : providers + orchestrateur
+│   │   │   ├── FileCleaningProviderBase.cs   # Base + liste blanche de sécurité
 │   │   │   ├── TempFilesProvider.cs
 │   │   │   ├── BrowserCacheProvider.cs
-│   │   │   ├── WindowsArtifactsProvider.cs  # logs, prefetch, miniatures
-│   │   │   ├── RecycleBinProvider.cs         # API shell (SHEmptyRecycleBin)
-│   │   │   └── CleaningEngine.cs             # orchestration scan/clean
-│   │   ├── Modules/             # Interfaces des modules 2 à 5 (stubs documentés)
-│   │   ├── Native/              # P/Invoke (NativeMethods)
-│   │   └── Diagnostics/         # Journalisation des actions
-│   └── CleanSlate.App/          # UI WPF (MVVM)
-│       ├── app.manifest         # Élévation UAC (asInvoker + relance admin)
-│       ├── App.xaml(.cs)
+│   │   │   ├── WindowsArtifactsProvider.cs   # Logs, prefetch, miniatures
+│   │   │   ├── RecycleBinProvider.cs          # API shell (SHEmptyRecycleBin)
+│   │   │   └── CleaningEngine.cs              # Orchestration scan / clean
+│   │   ├── Modules/
+│   │   │   ├── DriverInventory.cs    # Module 2 : WMI Win32_PnPSignedDriver
+│   │   │   ├── MemoryMonitor.cs      # Module 3 : GlobalMemoryStatusEx + EmptyWorkingSet
+│   │   │   ├── GameModeService.cs    # Module 4 : suspend/resume + snapshot JSON
+│   │   │   ├── StartupManager.cs     # Module 5a : clés Run + dossier Startup
+│   │   │   ├── RegistryCleaner.cs    # Module 5b : scan orphelins + fix avec backup
+│   │   │   └── SystemOptimization.cs # Interfaces + records partagés
+│   │   ├── Native/
+│   │   │   └── NativeMethods.cs      # P/Invoke (shell32, kernel32, psapi, ntdll)
+│   │   └── Diagnostics/
+│   │       └── FileActionLogger.cs   # Logs dans %LOCALAPPDATA%\CleanSlate\logs
+│   └── CleanSlate.App/          # Couche présentation WPF (MVVM)
+│       ├── app.manifest         # UAC : asInvoker + relance admin si nécessaire
+│       ├── App.xaml(.cs)        # Composition root : instanciation des services
 │       ├── MainWindow.xaml(.cs)
-│       ├── Views/               # CleaningView (module 1)
-│       ├── ViewModels/          # MVVM
-│       └── Infrastructure/      # ObservableObject, RelayCommand
+│       ├── Views/               # Vues XAML par module
+│       ├── ViewModels/          # Un ViewModel par module + MainViewModel
+│       └── Infrastructure/      # ObservableObject, RelayCommand, DialogService
 └── tests/
-    └── CleanSlate.Core.Tests/   # Tests unitaires (logique de scan sécurisée)
+    └── CleanSlate.Core.Tests/   # Tests unitaires et d'intégration légers
+        ├── CleaningFlowTests.cs  # Flux scan → clean sur dossier temporaire réel
+        ├── SafetyTests.cs        # Liste blanche IsPathSafeToDelete
+        ├── RegistryCleanerTests.cs # Extraction chemin depuis commande Run
+        └── TestSupport.cs        # Helpers (NullLogger, TestableFileProvider)
 ```
 
-Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour les diagrammes de flux.
+### Principes de conception
+
+| Couche | Règle |
+|--------|-------|
+| `CleanSlate.Core` | Zéro dépendance WPF. Testable en isolation. |
+| `CleanSlate.App` | Pur MVVM. Les ViewModels ne touchent pas le système de fichiers directement. |
+| Interfaces | Chaque module expose une interface (`ICleaningProvider`, `IMemoryMonitor`…) pour la testabilité. |
+| Deux phases | Tout nettoyage : `ScanAsync` (lecture seule) → confirmation → `CleanAsync`. |
+
+---
 
 ## Compiler et lancer
 
-> Prérequis : **Windows 10/11 64 bits** et le **SDK .NET 8** (`dotnet --version` ≥ 8).
-> Le projet cible `net8.0-windows` (WPF) : il **se compile et s'exécute uniquement
-> sous Windows**.
+> **Prérequis :** Windows 10/11 64 bits + [SDK .NET 8](https://dotnet.microsoft.com/download) (`dotnet --version` ≥ 8.0)
 
 ```powershell
-# Restauration et compilation
+# Cloner le dépôt
+git clone https://github.com/dorianskyfr/CLEANSLATE.git
+cd CLEANSLATE
+
+# Compiler
 dotnet build CleanSlate.sln -c Release
 
-# Lancement de l'application
+# Lancer l'application
 dotnet run --project src/CleanSlate.App
 
-# Tests unitaires (exécutables aussi en CI)
-dotnet test
+# Tests unitaires
+dotnet test CleanSlate.sln --verbosity normal
 
-# Publication d'un EXÉCUTABLE UNIQUE et autonome (un seul .exe)
+# Produire un exécutable unique autonome
 dotnet publish src/CleanSlate.App -c Release -p:PublishProfile=SingleFile
+# → src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
 ```
 
-### Un seul `.exe`, rien à installer
+### Exécutable unique autonome
 
-Le profil [`SingleFile.pubxml`](src/CleanSlate.App/Properties/PublishProfiles/SingleFile.pubxml)
-produit **un unique fichier** :
+Le profil `SingleFile.pubxml` produit **un seul fichier** embarquant le runtime .NET 8 + WPF :
 
-```
-src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
-```
-
-Cet exécutable embarque **le runtime .NET 8 + WPF** : il se lance par simple
-double-clic sur n'importe quel Windows 10/11 64 bits, **sans installer .NET**.
-
-| Réglage | Choix | Pourquoi |
-|---|---|---|
+| Réglage | Valeur | Raison |
+|---------|--------|--------|
 | `SelfContained` | `true` | Aucun prérequis sur le PC cible |
 | `PublishSingleFile` | `true` | Tout dans un seul `.exe` |
-| `EnableCompressionInSingleFile` | `true` | Réduit la taille (~150 Mo → ~70 Mo) |
+| `EnableCompressionInSingleFile` | `true` | ~150 Mo → ~70 Mo |
 | `PublishReadyToRun` | `true` | Démarrage plus rapide |
-| `PublishTrimmed` | `false` | ⚠️ Le *trimming* casse WPF (XAML par réflexion) — fiabilité d'abord |
+| `PublishTrimmed` | `false` | Le trimming casse WPF (XAML par réflexion) |
 
-> Taille attendue : ~70–150 Mo. C'est le prix d'un exe **totalement autonome**
-> (le runtime .NET + WPF y sont inclus). Pour un exe minuscule (~3 Mo) mais
-> nécessitant le *.NET Desktop Runtime* installé sur la cible, retirer
-> `SelfContained`/`PublishSingleFile` du profil.
+---
+
+## CI / CD
+
+Le fichier [`.github/workflows/build.yml`](.github/workflows/build.yml) tourne sur `windows-latest` à chaque push et pull request :
+
+1. Restauration des dépendances
+2. Compilation Release
+3. Tests unitaires
+4. Publication en `.exe` autonome
+5. Upload de l'artefact `CleanSlate.exe`
+6. Création d'une Release GitHub (sur tag `v*` ou déclenchement manuel)
+
+---
 
 ## Sécurité
 
 CleanSlate applique le principe **« rien d'irréversible sans confirmation »** :
 
-1. **Aperçu obligatoire** : tout nettoyage commence par un *scan* qui liste les
-   éléments et la taille récupérable. Rien n'est supprimé pendant le scan.
-2. **Confirmation explicite** avant suppression, avec décompte des éléments.
-3. **Listes blanches de sécurité** : les providers ne ciblent que des
-   emplacements connus (`%temp%`, caches navigateurs…). Refus catégorique de
-   supprimer des chemins racines, profils utilisateur complets, etc.
-   (voir `FileCleaningProviderBase.IsPathSafeToDelete`).
-4. **Sauvegarde obligatoire** pour les actions risquées (registre) : aucune
-   modification de registre sans export `.reg` préalable + restauration en un clic.
-5. **Journalisation** de chaque action dans `%LOCALAPPDATA%\CleanSlate\logs`.
+1. **Aperçu obligatoire** — le scan liste les éléments et l'espace récupérable, sans rien supprimer.
+2. **Confirmation explicite** — la suppression ne démarre qu'après validation, avec décompte affiché.
+3. **Listes blanches** — `FileCleaningProviderBase.IsPathSafeToDelete` refuse catégoriquement tout chemin racine, `System32`, `Program Files`, profil utilisateur entier, etc.
+4. **Sauvegarde obligatoire** — aucune modification du registre sans export `.reg` préalable + restauration en un clic.
+5. **Désactivation réversible** — les entrées de démarrage ne sont jamais supprimées, seulement déplacées (clé de backup ou sous-dossier).
+6. **Journalisation** — chaque action est enregistrée dans `%LOCALAPPDATA%\CleanSlate\logs`.
 
-## Limites techniques
+---
 
-Résumé (détails dans [`docs/LIMITES-TECHNIQUES.md`](docs/LIMITES-TECHNIQUES.md)) :
+## Limites techniques honnêtes
 
-- **Pilotes obsolètes** : *il n'existe pas d'API universelle et gratuite* donnant
-  « la dernière version du pilote X ». CleanSlate peut **inventorier** les pilotes
-  et déléguer la recherche de mises à jour à **Windows Update** ; comparer aux
-  versions constructeurs reste partiel et non garanti.
-- **Libération de RAM** : sur Windows moderne, « vider la RAM » est généralement
-  **inutile voire contre-productif** (le cache mémoire est bénéfique). La fonction
-  est fournie à titre de mesure/diagnostic, avec avertissement honnête.
-- **Nettoyage du registre** : le gain de performance est **quasi nul** en pratique ;
-  le risque existe. D'où la **sauvegarde obligatoire**.
-- **Mode Jeu** : les gains dépendent fortement de la machine ; suspendre des
-  processus système peut nuire. CleanSlate se limite à une liste sûre et restaure
-  systématiquement l'état initial.
+> Détails complets dans [`docs/LIMITES-TECHNIQUES.md`](docs/LIMITES-TECHNIQUES.md)
+
+| Module | Limite |
+|--------|--------|
+| Pilotes | Pas d'API universelle pour « la dernière version ». Inventaire uniquement + renvoi vers Windows Update. |
+| RAM | « Vider la RAM » est inutile sur Windows moderne. Fourni avec avertissement explicite. |
+| Registre | Gain de performance quasi nul. Sauvegarde imposée avant toute action. |
+| Mode Jeu | Gains variables selon la machine. Liste sûre uniquement, restauration systématique. |
+
+---
+
+## Stack technique
+
+| Critère | C# .NET 8 + WPF (retenu) | Electron | Python + Qt |
+|---------|--------------------------|----------|-------------|
+| Accès Win32 / WMI / registre | Natif (BCL + P/Invoke) | via add-ons | via `pywin32`, fragile |
+| Élévation UAC | Intégré (manifest) | Contournements | Relances manuelles |
+| Empreinte mémoire | Légère, natif | ~150 Mo (Chromium) | Moyenne |
+| Déploiement single-file | `dotnet publish` | Bundle lourd | PyInstaller |
+
+---
+
+## Contribuer
+
+Les contributions sont les bienvenues ! Quelques pistes :
+
+- **Nouveaux providers de nettoyage** — étendre `FileCleaningProviderBase`
+- **Recherche de mises à jour pilotes** — brancher `WUApiLib` (Microsoft.Update.Session) sur le module 2
+- **Tâches planifiées** — lister/désactiver via le planificateur Windows dans le module 5a
+- **Thème sombre** — le XAML utilise les ressources système, un thème sombre serait un plus
+- **Tests** — les modules Core sont testables en isolation via leurs interfaces
+
+```
+Fork → branche feature/ma-feature → PR vers main
+```
+
+---
+
+## Licence
+
+Ce projet est distribué sous licence **MIT**. Voir [`LICENSE`](LICENSE).
+
+---
+
+## Auteur
+
+Projet initialement créé et architecturé avec [Claude Code](https://claude.ai/code) (Anthropic).
