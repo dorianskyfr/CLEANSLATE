@@ -44,7 +44,11 @@ public sealed class CategoryViewModel : ObservableObject
     public bool HasScanned
     {
         get => _hasScanned;
-        private set => SetProperty(ref _hasScanned, value);
+        private set
+        {
+            if (SetProperty(ref _hasScanned, value))
+                OnPropertyChanged(nameof(RecoverableDisplay)); // nécessaire si RecoverableBytes reste 0
+        }
     }
 
     public long RecoverableBytes

@@ -7,6 +7,23 @@ using CleanSlate.App.Infrastructure;
 
 namespace CleanSlate.App.ViewModels;
 
+/// <summary>Informations d'un lecteur pour l'affichage dans la vue Nettoyage.</summary>
+public sealed record DriveInfoViewModel(string Name, string Label, long TotalBytes, long FreeBytes)
+{
+    public string DisplayName    => string.IsNullOrEmpty(Label) ? Name : $"{Name} ({Label})";
+    public long   UsedBytes      => TotalBytes - FreeBytes;
+    public double UsedPercent    => TotalBytes == 0 ? 0 : (double)UsedBytes / TotalBytes * 100;
+    public string FreeDisplay    => FormatBytes(FreeBytes);
+    public string TotalDisplay   => FormatBytes(TotalBytes);
+    private static string FormatBytes(long b)
+    {
+        string[] u = { "o", "Ko", "Mo", "Go", "To" };
+        double v = b; int i = 0;
+        while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
+        return $"{v:0.#} {u[i]}";
+    }
+}
+
 /// <summary>
 /// ViewModel du module 1 (nettoyage). Pilote les deux phases distinctes :
 /// ANALYSER (aperçu, ne supprime rien) puis NETTOYER (après confirmation).
@@ -30,12 +47,21 @@ public sealed class CleaningViewModel : ObservableObject
         Categories = new ObservableCollection<CategoryViewModel>(
             _engine.Providers.Select(p => new CategoryViewModel(p)));
 
-        ScanCommand = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
-        CleanCommand = new AsyncRelayCommand(CleanAsync, CanClean);
+        ScanCommand   = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
+        CleanCommand  = new AsyncRelayCommand(CleanAsync, CanClean);
         CancelCommand = new RelayCommand(() => _cts?.Cancel(), () => IsBusy);
+
+        AvailableDrives = new ObservableCollection<DriveInfoViewModel>(LoadDrives());
     }
 
-    public ObservableCollection<CategoryViewModel> Categories { get; }
+    public ObservableCollection<CategoryViewModel>  Categories      { get; }
+    public ObservableCollection<DriveInfoViewModel> AvailableDrives { get; }
+
+    private static IEnumerable<DriveInfoViewModel> LoadDrives() =>
+        DriveInfo.GetDrives()
+            .Where(d => d.IsReady && d.DriveType == DriveType.Fixed)
+            .Select(d => new DriveInfoViewModel(
+                d.Name, d.VolumeLabel, d.TotalSize, d.AvailableFreeSpace));
 
     public AsyncRelayCommand ScanCommand { get; }
     public AsyncRelayCommand CleanCommand { get; }
@@ -57,6 +83,7 @@ public sealed class CleaningViewModel : ObservableObject
                 ScanCommand.RaiseCanExecuteChanged();
                 CleanCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(ProgressPercent));
             }
         }
     }
@@ -64,8 +91,14 @@ public sealed class CleaningViewModel : ObservableObject
     public double ProgressValue
     {
         get => _progressValue;
-        private set => SetProperty(ref _progressValue, value);
+        private set
+        {
+            if (SetProperty(ref _progressValue, value))
+                OnPropertyChanged(nameof(ProgressPercent));
+        }
     }
+
+    public string ProgressPercent => IsBusy ? $"{ProgressValue:0}%" : string.Empty;
 
     public long TotalRecoverableBytes
     {
@@ -98,18 +131,27 @@ public sealed class CleaningViewModel : ObservableObject
 
         foreach (var c in selected) c.Reset();
 
-        var progress = new Progress<ScanProgress>(p =>
-            StatusMessage = $"Analyse : {p.ProviderDisplayName}…");
-
         try
         {
-            var results = await _engine.ScanAllAsync(
-                selected.Select(c => c.Provider.Id), progress, _cts.Token);
-
-            foreach (var result in results)
+            int total = selected.Count;
+            // Itère provider par provider pour mettre à jour la progression en temps réel.
+            for (int i = 0; i < total; i++)
             {
-                var vm = Categories.First(c => c.Provider.Id == result.ProviderId);
-                vm.ApplyScanResult(result);
+                var cat = selected[i];
+                _cts.Token.ThrowIfCancellationRequested();
+
+                StatusMessage = $"Analyse : {cat.Provider.DisplayName}… ({i + 1}/{total})";
+
+                var results = await _engine.ScanAllAsync(
+                    new[] { cat.Provider.Id }, null, _cts.Token);
+
+                foreach (var result in results)
+                {
+                    var vm = Categories.First(c => c.Provider.Id == result.ProviderId);
+                    vm.ApplyScanResult(result);
+                }
+
+                ProgressValue = (double)(i + 1) / total * 100;
             }
 
             TotalRecoverableBytes = selected.Sum(c => c.RecoverableBytes);

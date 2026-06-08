@@ -74,4 +74,64 @@ internal static class NativeMethods
 
     [DllImport("ntdll.dll")]
     public static extern uint NtResumeProcess(IntPtr processHandle);
+
+    // ---------------------------------------------------------------------
+    // Optimisation mémoire avancée — NtSetSystemInformation (ntdll).
+    // Permet de vider la Standby List (mémoire inutilisée en attente) et la
+    // Modified List, comme Wise Memory Optimizer / RAMMap. Requiert les droits
+    // SeProfileSingleProcessPrivilege (admin sur les versions récentes).
+    // NTSTATUS 0 = STATUS_SUCCESS.
+    // ---------------------------------------------------------------------
+    [DllImport("ntdll.dll")]
+    public static extern uint NtSetSystemInformation(
+        int SystemInformationClass,
+        ref uint SystemInformation,
+        uint SystemInformationLength);
+
+    /// <summary>SystemInformationClass = 80 (SystemMemoryListInformation).</summary>
+    public const int SystemMemoryListInformation = 80;
+
+    public const uint MemoryEmptyWorkingSets            = 2; // vide le working set de tous les processus
+    public const uint MemoryFlushModifiedList           = 3; // écrit les pages modifiées sur disque
+    public const uint MemoryPurgeStandbyList            = 4; // libère la standby list
+    public const uint MemoryPurgeLowPriorityStandbyList = 5; // libère la standby list basse priorité
+
+    // ---------------------------------------------------------------------
+    // Ajuster les privilèges (requis avant NtSetSystemInformation standby).
+    // ---------------------------------------------------------------------
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool OpenProcessToken(
+        IntPtr ProcessHandle,
+        uint DesiredAccess,
+        out IntPtr TokenHandle);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LUID { public uint LowPart; public int HighPart; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct TOKEN_PRIVILEGES
+    {
+        public uint PrivilegeCount;
+        public LUID Luid;
+        public uint Attributes;
+    }
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool LookupPrivilegeValue(string? lpSystemName, string lpName, out LUID lpLuid);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool AdjustTokenPrivileges(
+        IntPtr TokenHandle,
+        [MarshalAs(UnmanagedType.Bool)] bool DisableAllPrivileges,
+        ref TOKEN_PRIVILEGES NewState,
+        uint BufferLength,
+        IntPtr PreviousState,
+        IntPtr ReturnLength);
+
+    public const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
+    public const uint TOKEN_QUERY             = 0x0008;
+    public const uint SE_PRIVILEGE_ENABLED    = 0x00000002;
 }

@@ -1,53 +1,99 @@
 <UserControl x:Class="CleanSlate.App.Views.DriversView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="{StaticResource BackgroundBrush}">
+             Background="{DynamicResource BackgroundBrush}">
 
     <Grid Margin="24">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />   <!-- Titre -->
+            <RowDefinition Height="Auto" />   <!-- Boutons pilotes -->
+            <RowDefinition Height="*" />      <!-- Liste pilotes installés -->
+            <RowDefinition Height="Auto" />   <!-- Section mises à jour -->
+            <RowDefinition Height="Auto" />   <!-- Statut MàJ -->
+            <RowDefinition Height="140" />    <!-- Liste mises à jour -->
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Pilotes installés" Style="{StaticResource HeaderText}" />
+        <TextBlock Grid.Row="0" Text="Pilotes" Style="{StaticResource HeaderText}" />
 
-        <!-- Avertissement honnête -->
-        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="8"
-                Padding="16" Margin="0,16,0,0">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
-                <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="700" />
-            </StackPanel>
-        </Border>
-
-        <!-- Barre d'actions -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,8">
-            <Button Content="Lister les pilotes" Style="{StaticResource AccentButton}"
+        <!-- Actions pilotes -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,8">
+            <Button Content="🔄 Lister les pilotes" Style="{StaticResource AccentButton}"
                     Command="{Binding RefreshCommand}" />
-            <Button Content="Mises à jour Windows" Style="{StaticResource SecondaryButton}"
-                    Command="{Binding OpenWindowsUpdateCommand}" />
-            <Button Content="Rechercher chez le constructeur" Style="{StaticResource SecondaryButton}"
+            <Button Content="🔍 Chercher les mises à jour" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding SearchDriverUpdatesCommand}" />
+            <Button Content="🌐 Rechercher le constructeur" Style="{StaticResource SecondaryButton}"
                     Command="{Binding SearchManufacturerCommand}" />
         </StackPanel>
 
-        <!-- Tableau des pilotes -->
-        <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="4">
+        <!-- Tableau des pilotes installés -->
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="4">
             <ListView ItemsSource="{Binding Drivers}" SelectedItem="{Binding Selected}"
-                      Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextBrush}">
+                      Background="Transparent" BorderThickness="0"
+                      Foreground="{DynamicResource TextBrush}">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="Catégorie" Width="140"
+                        <GridViewColumn Header="Catégorie" Width="130"
                                         DisplayMemberBinding="{Binding DeviceClass}" />
-                        <GridViewColumn Header="Périphérique" Width="300"
+                        <GridViewColumn Header="Périphérique" Width="260"
                                         DisplayMemberBinding="{Binding DeviceName}" />
-                        <GridViewColumn Header="Version" Width="130"
+                        <GridViewColumn Header="Version" Width="120"
                                         DisplayMemberBinding="{Binding DriverVersion}" />
-                        <GridViewColumn Header="Date" Width="110"
+                        <GridViewColumn Header="Date" Width="100"
                                         DisplayMemberBinding="{Binding DriverDate, StringFormat=d}" />
-                        <GridViewColumn Header="Éditeur" Width="180"
+                        <GridViewColumn Header="Éditeur" Width="160"
                                         DisplayMemberBinding="{Binding Manufacturer}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+
+        <!-- En-tête mises à jour -->
+        <Grid Grid.Row="3" Margin="0,14,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Mises à jour de pilotes disponibles"
+                       Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" FontSize="14"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Installer la sélection"
+                    Style="{StaticResource AccentButton}"
+                    Command="{Binding InstallUpdateCommand}" />
+        </Grid>
+
+        <!-- Statut recherche -->
+        <TextBlock Grid.Row="4" Text="{Binding UpdateStatus}"
+                   Style="{StaticResource MutedText}" Margin="0,0,0,6" />
+
+        <!-- Liste mises à jour -->
+        <Border Grid.Row="5" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="4">
+            <ListView ItemsSource="{Binding DriverUpdates}" SelectedItem="{Binding SelectedUpdate}"
+                      Background="Transparent" BorderThickness="0"
+                      Foreground="{DynamicResource TextBrush}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Mise à jour" Width="440"
+                                        DisplayMemberBinding="{Binding Title}" />
+                        <GridViewColumn Header="Taille" Width="90"
+                                        DisplayMemberBinding="{Binding SizeDisplay}" />
+                        <GridViewColumn Header="Statut" Width="100">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Foreground="{DynamicResource AccentBrush}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="En attente" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDownloaded}" Value="True">
+                                                        <Setter Property="Text" Value="✅ Prêt" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                     </GridView>
                 </ListView.View>
             </ListView>

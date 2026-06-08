@@ -4,12 +4,10 @@
         xmlns:vm="clr-namespace:CleanSlate.App.ViewModels"
         xmlns:views="clr-namespace:CleanSlate.App.Views"
         Title="CleanSlate — Optimisation et nettoyage PC"
-        Height="680" Width="1000" MinHeight="520" MinWidth="820"
+        Height="720" Width="1060" MinHeight="560" MinWidth="860"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}">
 
-    <!-- Mappage ViewModel → Vue : le ContentControl affiche la bonne vue selon
-         le type du ViewModel sélectionné dans la navigation. -->
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:CleaningViewModel}">
             <views:CleaningView />
@@ -26,53 +24,92 @@
         <DataTemplate DataType="{x:Type vm:OptimizationViewModel}">
             <views:OptimizationView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:QuickRepairViewModel}">
+            <views:QuickRepairView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" /> <!-- Barre supérieure -->
-            <RowDefinition Height="*" />    <!-- Corps -->
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- Barre supérieure -->
-        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" Padding="24,14">
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" Padding="16,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+
+                <!-- Titre cliquable avec sous-menu -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="🧹 CleanSlate" Foreground="{StaticResource TextBrush}"
-                               FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
-                    <Border Background="{StaticResource BackgroundBrush}" CornerRadius="10"
+                    <Button x:Name="TitleMenuButton"
+                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                            Padding="0" Click="TitleMenuButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🧹 CleanSlate" FontSize="18" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text=" ▾" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,2" />
+                        </StackPanel>
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="ℹ️  À propos de CleanSlate"
+                                          Command="{Binding ShowAboutCommand}" />
+                                <MenuItem Header="📋  Notes de mise à jour"
+                                          Command="{Binding ShowPatchNotesCommand}" />
+                                <Separator />
+                                <MenuItem Header="🔄  Vérifier les mises à jour"
+                                          Command="{Binding CheckUpdatesCommand}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                    <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="10"
                             Padding="10,3" Margin="14,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding PrivilegeStatus}" FontSize="11"
-                                   Foreground="{StaticResource MutedBrush}" />
+                                   Foreground="{DynamicResource MutedBrush}" />
                     </Border>
                 </StackPanel>
-                <Button Grid.Column="1" Content="Redémarrer en administrateur"
-                        Style="{StaticResource SecondaryButton}"
-                        Command="{Binding RestartAsAdminCommand}"
-                        Visibility="{Binding ShowElevationButton,
-                            Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- Boutons droite : thème + admin -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="{Binding ThemeIcon}" FontSize="16"
+                            Background="Transparent" BorderThickness="0"
+                            Cursor="Hand" Padding="8,4" ToolTip="Basculer thème sombre/clair"
+                            Command="{Binding ToggleThemeCommand}" />
+                    <Button Content="Redémarrer en administrateur"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding RestartAsAdminCommand}"
+                            Visibility="{Binding ShowElevationButton,
+                                Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
             </Grid>
         </Border>
 
+        <!-- Bandeau de statut mise à jour (masqué si vide) -->
+        <Border Grid.Row="1" Background="{DynamicResource AccentBrush}" Padding="16,6"
+                Visibility="{Binding HasUpdateStatus, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding UpdateStatus}" Foreground="White" FontSize="12" />
+        </Border>
+
         <!-- Corps : navigation latérale + contenu -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="210" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <!-- Navigation -->
-            <ListBox Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderThickness="0"
+            <ListBox Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderThickness="0"
                      ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="16,12" />
-                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="Template">
                             <Setter.Value>
@@ -82,10 +119,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource BackgroundBrush}" />
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavHoverBrush}" />
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavSelectedBrush}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

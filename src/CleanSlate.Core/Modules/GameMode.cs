@@ -22,7 +22,8 @@ public sealed class GameModeOptions
         ProcessNamesToSuspend = new[]
         {
             "OneDrive", "Dropbox", "GoogleDriveFS",
-            "Spotify", "Slack", "Teams", "Discord",
+            "Spotify", "Slack", "Teams",
+            // Discord conservé actif : l'utilisateur peut être en communication vocale
         },
         ServiceNamesToStop = Array.Empty<string>(), // vide par défaut : prudence
     };
