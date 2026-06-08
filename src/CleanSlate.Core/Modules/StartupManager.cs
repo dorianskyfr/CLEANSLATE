@@ -127,13 +127,13 @@ public sealed class StartupManager : IStartupManager
         // Raccourcis actifs (à la racine du dossier Démarrage).
         foreach (var file in Directory.EnumerateFiles(folder, "*.lnk", SearchOption.TopDirectoryOnly))
             yield return new StartupEntry(Path.GetFileNameWithoutExtension(file), file,
-                StartupLocation.StartupFolder, isEnabled: true);
+                StartupLocation.StartupFolder, IsEnabled: true);
 
         // Raccourcis désactivés (dans le sous-dossier CleanSlate).
         if (Directory.Exists(DisabledFolderPath))
             foreach (var file in Directory.EnumerateFiles(DisabledFolderPath, "*.lnk", SearchOption.TopDirectoryOnly))
                 yield return new StartupEntry(Path.GetFileNameWithoutExtension(file), file,
-                    StartupLocation.StartupFolder, isEnabled: false);
+                    StartupLocation.StartupFolder, IsEnabled: false);
     }
 
     private static void ToggleStartupFolderEntry(StartupEntry entry, bool enable)
