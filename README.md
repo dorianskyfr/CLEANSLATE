@@ -21,15 +21,20 @@
 
 | Module | État | Détails |
 |---|---|---|
-| 1. Nettoyage fichiers temporaires | ✅ **Fonctionnel** | `%temp%`, cache navigateurs, logs Windows, corbeille, prefetch, miniatures. Aperçu + confirmation. |
-| 2. Détection pilotes obsolètes | 🟡 Interface + inventaire | Liste les pilotes via WMI/PnP. Comparaison de versions documentée comme limitée (voir docs). |
-| 3. Surveillance / libération RAM | 🟡 Interface | Lecture temps réel possible ; « libération » volontairement honnête sur son inefficacité. |
-| 4. Mode Jeu | 🟡 Interface | Conception décrite, restauration automatique garantie par conception. |
-| 5. Optimisation système | 🟡 Interface | Démarrage + registre avec sauvegarde **obligatoire** avant toute action. |
+| 1. Nettoyage fichiers temporaires | ✅ **Implémenté** | `%temp%`, cache navigateurs, logs Windows, corbeille, prefetch, miniatures. Aperçu + confirmation. |
+| 2. Détection pilotes obsolètes | ✅ **Implémenté** | Inventaire WMI complet + raccourcis Windows Update / recherche constructeur. Pas de fausse « dernière version » (voir docs). |
+| 3. Surveillance / libération RAM | ✅ **Implémenté** | Lecture temps réel (timer) ; libération possible avec avertissement honnête sur son inefficacité. |
+| 4. Mode Jeu | ✅ **Implémenté** | Suspension/reprise réversible des processus + services, snapshot persistant pour restauration après fermeture brutale. |
+| 5. Optimisation système | ✅ **Implémenté** | Démarrage (activer/désactiver réversible) + registre conservateur avec sauvegarde `.reg` **obligatoire** avant toute action. |
 
-Le **module 1 est livré complet et compilable**. Les modules 2 à 5 disposent
-d'interfaces, de modèles et d'une conception documentée, prêts à être implémentés
-sur les mêmes abstractions (`ICleaningProvider`, `IBackupService`, etc.).
+Les cinq modules sont implémentés derrière une interface multi-onglets. Voir la
+réserve ci-dessous sur la compilation.
+
+> ⚠️ **Compilation non vérifiée par l'auteur du commit.** Le code a été écrit et
+> relu sous Linux (sans SDK .NET, et WPF ne se construit que sous Windows). La
+> **CI GitHub Actions** (`.github/workflows/build.yml`, sur `windows-latest`)
+> compile, teste et publie l'exécutable à chaque push — c'est elle qui fait foi.
+> L'artefact `CleanSlate.exe` est téléchargeable depuis l'onglet **Actions**.
 
 ## Choix de la stack justifié
 

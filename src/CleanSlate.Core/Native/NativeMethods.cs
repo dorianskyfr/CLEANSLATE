@@ -55,4 +55,23 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    /// <summary>
+    /// Vide le working set d'un processus (psapi). ⚠️ Voir LIMITES-TECHNIQUES :
+    /// cela force surtout la pagination vers le disque, gain réel généralement nul.
+    /// </summary>
+    [DllImport("psapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EmptyWorkingSet(IntPtr hProcess);
+
+    // ---------------------------------------------------------------------
+    // Mode Jeu (module 4) — suspension/reprise de processus via ntdll.
+    // On SUSPEND (réversible) plutôt que de tuer. Nt* renvoie un NTSTATUS
+    // (0 = STATUS_SUCCESS).
+    // ---------------------------------------------------------------------
+    [DllImport("ntdll.dll")]
+    public static extern uint NtSuspendProcess(IntPtr processHandle);
+
+    [DllImport("ntdll.dll")]
+    public static extern uint NtResumeProcess(IntPtr processHandle);
 }

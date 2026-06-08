@@ -1,39 +1,67 @@
 namespace CleanSlate.Core.Modules;
 
+/// <summary>
+/// Options d'activation du Mode Jeu. Listes BLANCHES conservatrices : on ne touche
+/// qu'à ce qui est explicitement déclaré sûr.
+/// </summary>
+public sealed class GameModeOptions
+{
+    /// <summary>Noms de processus (sans .exe) à suspendre, ex. "OneDrive", "Spotify".</summary>
+    public IReadOnlyCollection<string> ProcessNamesToSuspend { get; init; } = Array.Empty<string>();
+
+    /// <summary>Noms de services Windows non essentiels à arrêter temporairement.</summary>
+    public IReadOnlyCollection<string> ServiceNamesToStop { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Liste blanche par défaut : applications d'arrière-plan courantes, non
+    /// critiques, sûres à suspendre pendant une session de jeu. JAMAIS de
+    /// processus système.
+    /// </summary>
+    public static GameModeOptions Default => new()
+    {
+        ProcessNamesToSuspend = new[]
+        {
+            "OneDrive", "Dropbox", "GoogleDriveFS",
+            "Spotify", "Slack", "Teams", "Discord",
+        },
+        ServiceNamesToStop = Array.Empty<string>(), // vide par défaut : prudence
+    };
+}
+
 /// <summary>État capturé avant l'activation du Mode Jeu, requis pour restaurer.</summary>
 public sealed class GameModeSnapshot
 {
-    public List<int> SuspendedProcessIds { get; } = new();
-    public List<string> StoppedServices { get; } = new();
-    public bool FocusAssistWasEnabled { get; set; }
-    public DateTime CapturedAt { get; init; } = DateTime.Now;
+    public List<int> SuspendedProcessIds { get; set; } = new();
+    public List<string> StoppedServices { get; set; } = new();
+    public DateTime CapturedAt { get; set; } = DateTime.Now;
 }
 
 /// <summary>
 /// Module 4 — Mode Jeu.
 ///
-/// PRINCIPE DE SÛRETÉ : on capture l'état initial AVANT toute action, et on le
-/// restaure systématiquement à la sortie (y compris au prochain démarrage si
-/// l'application est fermée brutalement — d'où la persistance du snapshot).
+/// PRINCIPE DE SÛRETÉ : on capture l'état AVANT toute action et on le restaure
+/// systématiquement à la sortie. Le snapshot est PERSISTÉ sur disque : si
+/// l'application est fermée brutalement, <see cref="TryRecoverAsync"/> permet de
+/// restaurer l'état au démarrage suivant (les processus suspendus sont repris).
 ///
-/// On SUSPEND les processus (NtSuspendProcess) plutôt que de les TUER, et on se
-/// limite à une LISTE BLANCHE conservatrice (jamais de processus système
-/// critiques). Voir docs/LIMITES-TECHNIQUES.md : les gains FPS sont très variables.
+/// On SUSPEND les processus (réversible) plutôt que de les tuer, et on se limite
+/// à une liste blanche conservatrice. Voir docs/LIMITES-TECHNIQUES.md : les gains
+/// FPS sont très variables selon la machine.
 /// </summary>
 public interface IGameMode
 {
     bool IsActive { get; }
 
-    /// <summary>
-    /// Active le Mode Jeu : capture l'état, suspend les processus de la liste sûre,
-    /// met en pause notifications/services non essentiels. Retourne le snapshot.
-    /// </summary>
-    Task<GameModeSnapshot> ActivateAsync(IReadOnlyCollection<string> safeProcessNames, CancellationToken ct);
+    /// <summary>Active le Mode Jeu : capture l'état, suspend les processus, arrête les services déclarés.</summary>
+    Task<GameModeSnapshot> ActivateAsync(GameModeOptions options, CancellationToken ct);
 
     /// <summary>Désactive le Mode Jeu et RESTAURE l'état capturé.</summary>
-    Task RestoreAsync(GameModeSnapshot snapshot, CancellationToken ct);
-}
+    Task RestoreAsync(CancellationToken ct);
 
-// Implémentation à venir : NtSuspendProcess/NtResumeProcess (ntdll), ServiceController
-// pour les services, et l'API Focus Assist. Toute la difficulté est dans la
-// FIABILITÉ de la restauration — d'où l'interface centrée sur le snapshot.
+    /// <summary>
+    /// Au démarrage de l'app : si un snapshot persistant subsiste (fermeture
+    /// brutale lors d'une session précédente), restaure l'état. Retourne true si
+    /// une récupération a eu lieu.
+    /// </summary>
+    Task<bool> TryRecoverAsync(CancellationToken ct);
+}

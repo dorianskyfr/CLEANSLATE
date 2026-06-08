@@ -24,6 +24,14 @@ public interface IMemoryMonitor
 {
     /// <summary>Lit l'état mémoire courant. Rafraîchissable par un timer côté UI.</summary>
     MemorySnapshot Read();
+
+    /// <summary>
+    /// Tente de « libérer » de la RAM en vidant le working set des processus
+    /// accessibles. ⚠️ À N'UTILISER qu'en connaissance de cause : sur Windows
+    /// moderne le gain est généralement nul/négatif (pagination vers le disque).
+    /// Retourne le nombre de processus traités.
+    /// </summary>
+    int TryFreeMemory();
 }
 
 /// <summary>Implémentation via GlobalMemoryStatusEx (kernel32). Fiable.</summary>
@@ -43,5 +51,28 @@ public sealed class MemoryMonitor : IMemoryMonitor
             status.ullTotalPhys,
             status.ullAvailPhys,
             status.dwMemoryLoad);
+    }
+
+    public int TryFreeMemory()
+    {
+        int count = 0;
+        foreach (var proc in System.Diagnostics.Process.GetProcesses())
+        {
+            try
+            {
+                // EmptyWorkingSet échoue sur les processus protégés : on ignore.
+                if (NativeMethods.EmptyWorkingSet(proc.Handle))
+                    count++;
+            }
+            catch
+            {
+                // Accès refusé (processus système) : comportement attendu.
+            }
+            finally
+            {
+                proc.Dispose();
+            }
+        }
+        return count;
     }
 }

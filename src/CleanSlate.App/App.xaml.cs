@@ -2,15 +2,16 @@ using System.Windows;
 using CleanSlate.Core.Abstractions;
 using CleanSlate.Core.Cleaning;
 using CleanSlate.Core.Diagnostics;
+using CleanSlate.Core.Modules;
 using CleanSlate.App.Infrastructure;
 using CleanSlate.App.ViewModels;
 
 namespace CleanSlate.App;
 
 /// <summary>
-/// Point d'entrée WPF. Sert de « composition root » : c'est ici qu'on instancie
-/// et qu'on relie manuellement les dépendances (logger → providers → moteur →
-/// ViewModels). Approche simple et explicite, sans conteneur DI.
+/// Point d'entrée WPF et « composition root » : on instancie et relie ici toutes
+/// les dépendances (services Core → ViewModels). Approche explicite, sans
+/// conteneur DI, pour rester léger et lisible.
 /// </summary>
 public partial class App : Application
 {
@@ -22,7 +23,7 @@ public partial class App : Application
         IActionLogger logger = new FileActionLogger();
         IDialogService dialogs = new DialogService();
 
-        // 2. Providers du module 1 (nettoyage). Ajouter une catégorie = l'ajouter ici.
+        // 2. Module 1 — Nettoyage : providers + moteur.
         var providers = new ICleaningProvider[]
         {
             new TempFilesProvider(logger),
@@ -32,15 +33,31 @@ public partial class App : Application
             new WindowsLogsProvider(logger),
             new PrefetchProvider(logger),
         };
-
-        // 3. Moteur d'orchestration.
         var engine = new CleaningEngine(providers, logger);
 
-        // 4. ViewModels.
-        var cleaningVm = new CleaningViewModel(engine, dialogs);
-        var mainVm = new MainViewModel(cleaningVm, dialogs);
+        // 3. Modules 2 à 5.
+        IMemoryMonitor memoryMonitor = new MemoryMonitor();
+        IDriverInventory driverInventory = new WmiDriverInventory();
+        IGameMode gameMode = new GameModeService(logger);
+        IStartupManager startupManager = new StartupManager(logger);
+        IRegistryCleaner registryCleaner = new RegistryCleaner(logger);
+        IBackupService backupService = new RegistryBackupService(logger);
 
-        // 5. Fenêtre principale.
+        // 4. Récupération de sûreté : si une session précédente s'est fermée
+        //    pendant le Mode Jeu, on restaure l'état (reprise des processus).
+        _ = gameMode.TryRecoverAsync(CancellationToken.None);
+
+        // 5. ViewModels.
+        var cleaningVm = new CleaningViewModel(engine, dialogs);
+        var memoryVm = new MemoryViewModel(memoryMonitor, dialogs);
+        var driversVm = new DriversViewModel(driverInventory, dialogs);
+        var gameModeVm = new GameModeViewModel(gameMode, dialogs);
+        var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, dialogs);
+
+        var mainVm = new MainViewModel(
+            cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, dialogs);
+
+        // 6. Fenêtre principale.
         var window = new MainWindow { DataContext = mainVm };
         window.Show();
 

@@ -1,0 +1,45 @@
+name: Build & Publish CleanSlate
+
+# Compile, teste et publie l'exécutable unique sur Windows.
+# L'artefact CleanSlate.exe est téléchargeable depuis l'onglet "Actions" de GitHub
+# (résumé du run → section "Artifacts"), sans avoir de machine Windows sous la main.
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  pull_request:
+  workflow_dispatch: # permet un lancement manuel depuis l'onglet Actions
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Installation du SDK .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restauration des dépendances
+        run: dotnet restore CleanSlate.sln
+
+      - name: Compilation (Release)
+        run: dotnet build CleanSlate.sln -c Release --no-restore
+
+      - name: Tests unitaires
+        run: dotnet test CleanSlate.sln -c Release --no-build --verbosity normal
+
+      - name: Publication en un seul .exe autonome
+        run: dotnet publish src/CleanSlate.App -c Release -p:PublishProfile=SingleFile
+
+      - name: Téléversement de l'artefact (CleanSlate.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CleanSlate-win-x64
+          path: src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
+          if-no-files-found: error

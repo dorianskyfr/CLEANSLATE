@@ -1,0 +1,74 @@
+<UserControl x:Class="CleanSlate.App.Views.MemoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Surveillance de la mémoire" Style="{StaticResource HeaderText}" />
+
+        <!-- Jauge d'utilisation -->
+        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="8"
+                Padding="20" Margin="0,16,0,0">
+            <StackPanel>
+                <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12"
+                           Text="Utilisation de la mémoire physique" />
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar Grid.Column="0" Height="14" Minimum="0" Maximum="100"
+                                 Value="{Binding LoadPercent, Mode=OneWay}"
+                                 Background="{StaticResource BackgroundBrush}"
+                                 Foreground="{StaticResource AccentBrush}" BorderThickness="0" />
+                    <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextBrush}" FontWeight="Bold">
+                        <Run Text="{Binding LoadPercent, Mode=OneWay, StringFormat={}{0:0}}" />
+                        <Run Text="%" />
+                    </TextBlock>
+                </Grid>
+
+                <UniformGrid Columns="3" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Total" Style="{StaticResource MutedText}" />
+                        <TextBlock Text="{Binding TotalDisplay}" Foreground="{StaticResource TextBrush}"
+                                   FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Utilisée" Style="{StaticResource MutedText}" />
+                        <TextBlock Text="{Binding UsedDisplay}" Foreground="{StaticResource AccentBrush}"
+                                   FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Disponible" Style="{StaticResource MutedText}" />
+                        <TextBlock Text="{Binding AvailableDisplay}" Foreground="{StaticResource TextBrush}"
+                                   FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                </UniformGrid>
+            </StackPanel>
+        </Border>
+
+        <!-- Avertissement honnête -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" CornerRadius="8"
+                Padding="16" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
+                <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}"
+                           MaxWidth="640" />
+            </StackPanel>
+        </Border>
+
+        <!-- Bouton de libération -->
+        <Button Grid.Row="4" HorizontalAlignment="Right" Margin="0,16,0,0"
+                Content="Libérer la RAM (déconseillé)" Style="{StaticResource SecondaryButton}"
+                Command="{Binding FreeMemoryCommand}" />
+    </Grid>
+</UserControl>

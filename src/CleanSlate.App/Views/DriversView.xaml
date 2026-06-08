@@ -1,0 +1,56 @@
+<UserControl x:Class="CleanSlate.App.Views.DriversView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource BackgroundBrush}">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Pilotes installés" Style="{StaticResource HeaderText}" />
+
+        <!-- Avertissement honnête -->
+        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="8"
+                Padding="16" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
+                <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="700" />
+            </StackPanel>
+        </Border>
+
+        <!-- Barre d'actions -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,8">
+            <Button Content="Lister les pilotes" Style="{StaticResource AccentButton}"
+                    Command="{Binding RefreshCommand}" />
+            <Button Content="Mises à jour Windows" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding OpenWindowsUpdateCommand}" />
+            <Button Content="Rechercher chez le constructeur" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding SearchManufacturerCommand}" />
+        </StackPanel>
+
+        <!-- Tableau des pilotes -->
+        <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="4">
+            <ListView ItemsSource="{Binding Drivers}" SelectedItem="{Binding Selected}"
+                      Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextBrush}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Catégorie" Width="140"
+                                        DisplayMemberBinding="{Binding DeviceClass}" />
+                        <GridViewColumn Header="Périphérique" Width="300"
+                                        DisplayMemberBinding="{Binding DeviceName}" />
+                        <GridViewColumn Header="Version" Width="130"
+                                        DisplayMemberBinding="{Binding DriverVersion}" />
+                        <GridViewColumn Header="Date" Width="110"
+                                        DisplayMemberBinding="{Binding DriverDate, StringFormat=d}" />
+                        <GridViewColumn Header="Éditeur" Width="180"
+                                        DisplayMemberBinding="{Binding Manufacturer}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+    </Grid>
+</UserControl>

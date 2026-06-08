@@ -18,6 +18,13 @@
   <ItemGroup>
     <!-- System.Management : accès WMI (inventaire pilotes, module 2). -->
     <PackageReference Include="System.Management" Version="8.0.0" />
+    <!-- ServiceController : arrêt/redémarrage de services pour le Mode Jeu (module 4). -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Permet aux tests d'accéder aux membres internes (ex. logique de parsing). -->
+    <InternalsVisibleTo Include="CleanSlate.Core.Tests" />
   </ItemGroup>
 
 </Project>
