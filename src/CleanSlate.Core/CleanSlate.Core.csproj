@@ -10,8 +10,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <!-- Accès au registre / WMI sous Windows uniquement -->
-    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <RootNamespace>CleanSlate.Core</RootNamespace>
   </PropertyGroup>
 
