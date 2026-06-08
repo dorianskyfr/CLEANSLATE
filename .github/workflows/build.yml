@@ -9,6 +9,8 @@ on:
     branches:
       - main
       - "claude/**"
+    tags:
+      - "v*" # un tag vX.Y.Z déclenche la publication d'une Release
   pull_request:
   workflow_dispatch: # permet un lancement manuel depuis l'onglet Actions
 
@@ -43,3 +45,49 @@ jobs:
           name: CleanSlate-win-x64
           path: src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
           if-no-files-found: error
+
+  # Publication d'une Release GitHub avec le .exe attaché, déclenchée uniquement
+  # par un tag « v* » (ex. v0.1). Ne s'exécute que si le build/les tests passent.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write # nécessaire pour créer la Release et y attacher des fichiers
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Installation du SDK .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publication en un seul .exe autonome
+        run: dotnet publish src/CleanSlate.App -c Release -p:PublishProfile=SingleFile
+
+      - name: Création de la Release et envoi du .exe
+        uses: softprops/action-gh-release@v2
+        with:
+          name: CleanSlate ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
+          body: |
+            ## CleanSlate ${{ github.ref_name }}
+
+            Utilitaire d'optimisation et de nettoyage PC pour Windows 10/11 (64 bits).
+
+            ### Téléchargement
+            **`CleanSlate.exe`** ci-dessous : exécutable **unique et autonome**
+            (runtime .NET 8 + WPF inclus). Aucune installation requise — double-cliquez.
+
+            > ⚠️ Comme tout exécutable non signé, Windows SmartScreen peut afficher
+            > un avertissement au premier lancement (« Informations complémentaires »
+            > → « Exécuter quand même »).
+
+            ### Contenu de cette version
+            Cinq modules : nettoyage de fichiers, surveillance mémoire, inventaire
+            des pilotes, Mode Jeu, optimisation système (démarrage + registre avec
+            sauvegarde obligatoire). Voir le `README` et `docs/LIMITES-TECHNIQUES.md`
+            pour les capacités et les limites honnêtes de chaque fonctionnalité.
