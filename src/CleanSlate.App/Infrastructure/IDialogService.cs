@@ -1,0 +1,14 @@
+namespace CleanSlate.App.Infrastructure;
+
+/// <summary>
+/// Abstraction des boîtes de dialogue, pour que les ViewModels n'aient pas de
+/// dépendance directe à WPF (MessageBox) et restent testables.
+/// </summary>
+public interface IDialogService
+{
+    /// <summary>Demande une confirmation (Oui/Non). Retourne true si l'utilisateur confirme.</summary>
+    bool Confirm(string title, string message);
+
+    void Info(string title, string message);
+    void Warn(string title, string message);
+}

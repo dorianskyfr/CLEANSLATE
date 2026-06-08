@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    CleanSlate.App : application WPF (interface utilisateur, MVVM).
+    Référence CleanSlate.Core pour toute la logique métier.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>CleanSlate.App</RootNamespace>
+    <AssemblyName>CleanSlate</AssemblyName>
+    <!-- Manifeste pour la gestion de l'élévation UAC. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon></ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CleanSlate.Core\CleanSlate.Core.csproj" />
+  </ItemGroup>
+
+</Project>

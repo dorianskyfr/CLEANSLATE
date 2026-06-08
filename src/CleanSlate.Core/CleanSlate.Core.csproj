@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    CleanSlate.Core : bibliothèque de logique métier.
+    Cible net8.0-windows car certaines API (registre, WMI, P/Invoke shell)
+    sont spécifiques à Windows. AUCUNE dépendance à WPF ici.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Accès au registre / WMI sous Windows uniquement -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>CleanSlate.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- System.Management : accès WMI (inventaire pilotes, module 2). -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

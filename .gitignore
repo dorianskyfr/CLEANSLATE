@@ -1,0 +1,22 @@
+# Build .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+*.user
+*.suo
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.userprefs
+
+# Publication
+publish/
+*.publishsettings
+
+# Journaux locaux de l'application
+*.log
