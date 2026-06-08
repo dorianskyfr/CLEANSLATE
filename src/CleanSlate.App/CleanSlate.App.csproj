@@ -18,6 +18,13 @@
     <ApplicationIcon></ApplicationIcon>
   </PropertyGroup>
 
+  <!--
+    Distribution en un SEUL .exe autonome : voir le profil de publication
+    Properties/PublishProfiles/SingleFile.pubxml et la section « Compiler et
+    lancer » du README. On garde le .csproj léger pour que les builds de dev
+    et les tests restent rapides (framework-dependent).
+  -->
+
   <ItemGroup>
     <ProjectReference Include="..\CleanSlate.Core\CleanSlate.Core.csproj" />
   </ItemGroup>

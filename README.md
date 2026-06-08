@@ -110,10 +110,34 @@ dotnet run --project src/CleanSlate.App
 # Tests unitaires (exécutables aussi en CI)
 dotnet test
 
-# Publication d'un exécutable autonome (single-file)
-dotnet publish src/CleanSlate.App -c Release -r win-x64 `
-  --self-contained true -p:PublishSingleFile=true
+# Publication d'un EXÉCUTABLE UNIQUE et autonome (un seul .exe)
+dotnet publish src/CleanSlate.App -c Release -p:PublishProfile=SingleFile
 ```
+
+### Un seul `.exe`, rien à installer
+
+Le profil [`SingleFile.pubxml`](src/CleanSlate.App/Properties/PublishProfiles/SingleFile.pubxml)
+produit **un unique fichier** :
+
+```
+src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
+```
+
+Cet exécutable embarque **le runtime .NET 8 + WPF** : il se lance par simple
+double-clic sur n'importe quel Windows 10/11 64 bits, **sans installer .NET**.
+
+| Réglage | Choix | Pourquoi |
+|---|---|---|
+| `SelfContained` | `true` | Aucun prérequis sur le PC cible |
+| `PublishSingleFile` | `true` | Tout dans un seul `.exe` |
+| `EnableCompressionInSingleFile` | `true` | Réduit la taille (~150 Mo → ~70 Mo) |
+| `PublishReadyToRun` | `true` | Démarrage plus rapide |
+| `PublishTrimmed` | `false` | ⚠️ Le *trimming* casse WPF (XAML par réflexion) — fiabilité d'abord |
+
+> Taille attendue : ~70–150 Mo. C'est le prix d'un exe **totalement autonome**
+> (le runtime .NET + WPF y sont inclus). Pour un exe minuscule (~3 Mo) mais
+> nécessitant le *.NET Desktop Runtime* installé sur la cible, retirer
+> `SelfContained`/`PublishSingleFile` du profil.
 
 ## Sécurité
 
