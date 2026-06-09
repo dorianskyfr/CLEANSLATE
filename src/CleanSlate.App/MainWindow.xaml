@@ -27,6 +27,9 @@
         <DataTemplate DataType="{x:Type vm:QuickRepairViewModel}">
             <views:QuickRepairView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AdBlockViewModel}">
+            <views:AdBlockView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>

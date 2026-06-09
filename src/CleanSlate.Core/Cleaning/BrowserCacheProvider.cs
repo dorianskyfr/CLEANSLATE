@@ -4,18 +4,9 @@ using CleanSlate.Core.Models;
 namespace CleanSlate.Core.Cleaning;
 
 /// <summary>
-/// Nettoyage du cache des principaux navigateurs (Chrome, Edge, Firefox).
-///
-/// LIMITE HONNÊTE : si le navigateur est ouvert, beaucoup de fichiers de cache
-/// sont verrouillés et ne pourront pas être supprimés. L'UI recommande de fermer
-/// le navigateur avant le nettoyage. Vider le cache entraîne un re-téléchargement
-/// des ressources (léger ralentissement temporaire à la prochaine navigation).
-///
-/// SÉCURITÉ : on vise UNIQUEMENT les dossiers de cache — jamais l'historique, les
-/// mots de passe, les cookies ou les profils, qui sont des données utilisateur.
-/// Pour Firefox, le nom du profil est aléatoire (ex. "xxxx.default-release") ;
-/// on résout donc dynamiquement le sous-dossier "cache2" de CHAQUE profil, sans
-/// jamais cibler la racine "Profiles" (qui contient les données personnelles).
+/// Nettoyage du cache des principaux navigateurs (Chrome, Edge, Brave, Opera, Firefox).
+/// Énumère dynamiquement tous les profils pour couvrir les configs multi-profils.
+/// Ne touche jamais aux mots de passe, favoris ou historique — cache uniquement.
 /// </summary>
 public sealed class BrowserCacheProvider : FileCleaningProviderBase
 {
@@ -27,44 +18,74 @@ public sealed class BrowserCacheProvider : FileCleaningProviderBase
     public override CleaningSeverity Severity => CleaningSeverity.Information;
 
     public override string Description =>
-        "Vide le cache de Chrome, Edge et Firefox. Fermez vos navigateurs avant le " +
+        "Vide le cache de Chrome, Edge, Brave, Opera et Firefox. Fermez vos navigateurs avant le " +
         "nettoyage, sinon des fichiers seront verrouillés. N'affecte ni vos mots de " +
         "passe, ni vos favoris, ni votre historique — uniquement les fichiers de cache.";
 
-    // Targets calculée à chaque accès : permet de découvrir dynamiquement les
-    // profils Firefox tout en gardant le modèle déclaratif pour Chrome/Edge.
     protected override IReadOnlyList<CleaningTarget> Targets => BuildTargets();
 
     private static IReadOnlyList<CleaningTarget> BuildTargets()
     {
-        var targets = new List<CleaningTarget>
-        {
-            // Google Chrome — dossiers de cache du profil par défaut uniquement.
-            new(@"%LOCALAPPDATA%\Google\Chrome\User Data\Default\Cache",
-                CleaningCategory.CacheNavigateurs),
-            new(@"%LOCALAPPDATA%\Google\Chrome\User Data\Default\Code Cache",
-                CleaningCategory.CacheNavigateurs),
+        var targets = new List<CleaningTarget>();
 
-            // Microsoft Edge — idem.
-            new(@"%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Cache",
-                CleaningCategory.CacheNavigateurs),
-            new(@"%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Code Cache",
-                CleaningCategory.CacheNavigateurs),
+        // ── Navigateurs Chromium (Chrome, Edge, Brave, Vivaldi, Canary/Beta) ──
+        // Chacun utilise la structure "User Data\Default" et "User Data\Profile N".
+        string[] chromiumUserDataDirs =
+        {
+            @"%LOCALAPPDATA%\Google\Chrome\User Data",
+            @"%LOCALAPPDATA%\Google\Chrome Beta\User Data",
+            @"%LOCALAPPDATA%\Google\Chrome SxS\User Data",
+            @"%LOCALAPPDATA%\Microsoft\Edge\User Data",
+            @"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data",
+            @"%LOCALAPPDATA%\Vivaldi\User Data",
         };
 
-        // Firefox : pour chaque profil, ne cibler que <profil>\cache2.
-        var firefoxProfiles = ExpandPath(@"%LOCALAPPDATA%\Mozilla\Firefox\Profiles");
-        if (Directory.Exists(firefoxProfiles))
+        foreach (var template in chromiumUserDataDirs)
+            AddChromiumProfiles(targets, template);
+
+        // ── Opera / Opera GX — dossier "User Data" propre ──
+        AddChromiumProfiles(targets, @"%APPDATA%\Opera Software\Opera Stable");
+        AddChromiumProfiles(targets, @"%LOCALAPPDATA%\Opera Software\Opera GX Stable");
+
+        // ── Firefox — profils dans Profiles\ ──
+        var ffProfiles = ExpandPath(@"%LOCALAPPDATA%\Mozilla\Firefox\Profiles");
+        if (Directory.Exists(ffProfiles))
         {
-            foreach (var profileDir in SafeListDirectories(firefoxProfiles))
+            foreach (var profileDir in SafeListDirectories(ffProfiles))
             {
-                var cache2 = Path.Combine(profileDir, "cache2");
-                if (Directory.Exists(cache2))
-                    targets.Add(new CleaningTarget(cache2, CleaningCategory.CacheNavigateurs));
+                foreach (var sub in new[] { "cache2", "startupCache" })
+                {
+                    var p = Path.Combine(profileDir, sub);
+                    if (Directory.Exists(p))
+                        targets.Add(new CleaningTarget(p, CleaningCategory.CacheNavigateurs));
+                }
             }
         }
 
         return targets;
+    }
+
+    private static void AddChromiumProfiles(List<CleaningTarget> targets, string userDataTemplate)
+    {
+        var userDataDir = ExpandPath(userDataTemplate);
+        if (!Directory.Exists(userDataDir)) return;
+
+        // Default + tous les "Profile N"
+        var profiles = new List<string> { Path.Combine(userDataDir, "Default") };
+        profiles.AddRange(
+            SafeListDirectories(userDataDir)
+                .Where(d => Path.GetFileName(d).StartsWith("Profile ", StringComparison.Ordinal)));
+
+        foreach (var profile in profiles.Where(Directory.Exists))
+        {
+            // Cache, Code Cache (JS/WASM), GPU Cache
+            foreach (var sub in new[] { "Cache", "Code Cache", "GPUCache" })
+            {
+                var p = Path.Combine(profile, sub);
+                if (Directory.Exists(p))
+                    targets.Add(new CleaningTarget(p, CleaningCategory.CacheNavigateurs));
+            }
+        }
     }
 
     private static IEnumerable<string> SafeListDirectories(string path)
@@ -73,3 +94,4 @@ public sealed class BrowserCacheProvider : FileCleaningProviderBase
         catch { return Array.Empty<string>(); }
     }
 }
+

@@ -8,15 +8,56 @@ namespace CleanSlate.App.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
-        "Version 0.1 (2025-06)\n\n" +
-        "• Nettoyage : fichiers temp, cache navigateurs, miniatures, corbeille, journaux Windows, prefetch\n" +
-        "• Mémoire : surveillance en temps réel + optimisation avancée (Standby List)\n" +
-        "• Pilotes : inventaire WMI + recherche/installation de mises à jour via Windows Update (WUApi)\n" +
-        "• Mode Jeu : suspension des processus non essentiels (Discord conservé)\n" +
-        "• Optimisation : gestionnaire démarrage + nettoyage registre\n" +
-        "• Réparation rapide : diagnostic système en 6 points\n" +
+        "─────────────────────────────\n" +
+        "v0.3 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Bloqueur de pub système (onglet 🛡️) — bloque ~130 000 domaines\n" +
+        "  via le fichier hosts (AdGuard-style, tous navigateurs + apps)\n" +
+        "• Cache navigateurs : détection multi-profils (Chrome, Edge, Brave,\n" +
+        "  Vivaldi, Opera, Opera GX) — correction de l'affichage « 0 o »\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.2.7 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Notes de version complètes intégrées dans l'application\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.2.6 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Fix : le bouton « Analyser » scanne maintenant TOUTES les catégories\n" +
+        "  (plus de « — » sur les lignes non cochées)\n" +
+        "• Fix : détection de la corbeille via le dossier $Recycle.Bin\\{SID}\n" +
+        "  de l'utilisateur — plus fiable sur Windows 11 multi-comptes\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.2.5 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Fix : corbeille affichait « — » même avec des fichiers présents\n" +
+        "  (HRESULT S_FALSE sur certaines configs Windows 11)\n" +
+        "• Mode Jeu : liste étendue de 6 à 22 processus suspendus\n" +
+        "  (cloud, communication, lanceurs de jeux, Adobe…)\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.2 (2026-06)\n" +
+        "─────────────────────────────\n" +
         "• Thème sombre / clair basculable à chaud\n" +
-        "• Mise à jour automatique via GitHub Releases";
+        "• Barre de progression avec % lors de l'analyse\n" +
+        "• Vue des lecteurs disponibles avec espace libre\n" +
+        "• Optimisation RAM avancée (purge Standby List)\n" +
+        "• Mises à jour de pilotes via Windows Update (WUApi)\n" +
+        "• Onglet Réparation rapide : diagnostic en 6 points\n" +
+        "• Vérificateur de mises à jour intégré\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.1 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Nettoyage : fichiers temp, cache navigateurs, miniatures,\n" +
+        "  corbeille, journaux Windows, prefetch\n" +
+        "• Mémoire : surveillance en temps réel + optimisation avancée\n" +
+        "• Pilotes : inventaire WMI\n" +
+        "• Mode Jeu : suspension des processus non essentiels\n" +
+        "• Optimisation : gestionnaire démarrage + nettoyage registre\n" +
+        "• Réparation rapide : diagnostic système en 6 points";
 
     private readonly IUpdateService _updateService;
     private readonly IDialogService _dialogs;
@@ -32,6 +73,7 @@ public sealed class MainViewModel : ObservableObject
         GameModeViewModel gameMode,
         OptimizationViewModel optimization,
         QuickRepairViewModel quickRepair,
+        AdBlockViewModel adBlock,
         IUpdateService updateService,
         IDialogService dialogs)
     {
@@ -48,6 +90,7 @@ public sealed class MainViewModel : ObservableObject
             new("Mode Jeu",         "🎮", gameMode),
             new("Optimisation",     "⚙️", optimization),
             new("Réparation rapide","🛠️", quickRepair),
+            new("Bloqueur de pub",  "🛡️", adBlock),
         };
         _selectedItem = Items[0];
 

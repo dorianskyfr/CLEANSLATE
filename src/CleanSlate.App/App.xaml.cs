@@ -54,6 +54,7 @@ public partial class App : Application
         IBackupService backupService     = new RegistryBackupService(logger);
         IQuickRepairService repairSvc    = new QuickRepairService(logger);
         IUpdateService updateSvc         = new GitHubUpdateService();
+        IAdBlockService adBlockSvc       = new HostsAdBlockService();
 
         _ = gameMode.TryRecoverAsync(CancellationToken.None);
 
@@ -63,9 +64,10 @@ public partial class App : Application
         var gameModeVm     = new GameModeViewModel(gameMode, dialogs);
         var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);
+        var adBlockVm      = new AdBlockViewModel(adBlockSvc, dialogs);
 
         var mainVm = new MainViewModel(
-            cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, updateSvc, dialogs);
+            cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm, updateSvc, dialogs);
 
         var window = new MainWindow { DataContext = mainVm };
         window.Show();
