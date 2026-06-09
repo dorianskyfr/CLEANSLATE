@@ -21,7 +21,7 @@ public sealed class GitHubUpdateService : IUpdateService
     private const string Owner = "dorianskyfr";
     private const string Repo  = "CLEANSLATE";
 
-    public string CurrentVersion => "0.2.5";
+    public string CurrentVersion => "0.2.6";
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct)
     {

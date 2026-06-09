@@ -118,27 +118,23 @@ public sealed class CleaningViewModel : ObservableObject
     // =====================================================================
     private async Task ScanAsync()
     {
-        var selected = Categories.Where(c => c.IsSelected).ToList();
-        if (selected.Count == 0)
-        {
-            _dialogs.Info("Analyse", "Sélectionnez au moins une catégorie à analyser.");
-            return;
-        }
+        // On scanne TOUTES les catégories pour que chacune affiche sa taille.
+        // La sélection (checkbox) contrôle uniquement ce qui sera nettoyé.
+        var all = Categories.ToList();
 
         IsBusy = true;
         ProgressValue = 0;
         StatusMessage = "Analyse en cours…";
         _cts = new CancellationTokenSource();
 
-        foreach (var c in selected) c.Reset();
+        foreach (var c in all) c.Reset();
 
         try
         {
-            int total = selected.Count;
-            // Itère provider par provider pour mettre à jour la progression en temps réel.
+            int total = all.Count;
             for (int i = 0; i < total; i++)
             {
-                var cat = selected[i];
+                var cat = all[i];
                 _cts.Token.ThrowIfCancellationRequested();
 
                 StatusMessage = $"Analyse : {cat.Provider.DisplayName}… ({i + 1}/{total})";
@@ -155,8 +151,8 @@ public sealed class CleaningViewModel : ObservableObject
                 ProgressValue = (double)(i + 1) / total * 100;
             }
 
-            TotalRecoverableBytes = selected.Sum(c => c.RecoverableBytes);
-            var itemCount = selected.Sum(c => c.ItemCount);
+            TotalRecoverableBytes = all.Sum(c => c.RecoverableBytes);
+            var itemCount = all.Sum(c => c.ItemCount);
             StatusMessage = itemCount == 0
                 ? "Rien à nettoyer : votre système est déjà propre. 🎉"
                 : $"Analyse terminée : {itemCount} élément(s), {TotalRecoverableDisplay} récupérable(s).";

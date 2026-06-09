@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using CleanSlate.Core.Abstractions;
 using CleanSlate.Core.Models;
 using CleanSlate.Core.Native;
@@ -55,36 +56,44 @@ public sealed class RecycleBinProvider : ICleaningProvider
             }
             else
             {
-                // Méthode 2 (repli) : énumération directe de $Recycle.Bin sur chaque
-                // lecteur fixe. Couvre les cas où SHQueryRecycleBin retourne S_FALSE
-                // ou un code d'erreur non fatal sur certaines configs Windows 11.
+                // Méthode 2 (repli) : cibler directement le dossier $Recycle.Bin de
+                // l'utilisateur courant (via son SID). Plus fiable que d'énumérer tous
+                // les sous-dossiers, qui peuvent être inaccessibles (autres utilisateurs).
+                var currentSid = WindowsIdentity.GetCurrent().User?.ToString();
+
                 foreach (var drive in DriveInfo.GetDrives()
                     .Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
                 {
-                    var rbPath = Path.Combine(drive.Name, "$Recycle.Bin");
-                    if (!Directory.Exists(rbPath)) continue;
-                    try
+                    var rbRoot = Path.Combine(drive.Name, "$Recycle.Bin");
+                    if (!Directory.Exists(rbRoot)) continue;
+
+                    // Préférer le dossier SID courant ; sinon énumérer tous les dossiers.
+                    IEnumerable<string> userDirs;
+                    if (currentSid != null)
                     {
-                        foreach (var userDir in Directory.GetDirectories(rbPath))
-                        {
-                            try
-                            {
-                                // Les fichiers recyclés portent le préfixe $R
-                                foreach (var f in Directory.GetFiles(
-                                    userDir, "$R*", SearchOption.AllDirectories))
-                                {
-                                    try
-                                    {
-                                        totalSize += new FileInfo(f).Length;
-                                        totalItems++;
-                                    }
-                                    catch { /* fichier inaccessible : on ignore */ }
-                                }
-                            }
-                            catch { }
-                        }
+                        var userDir = Path.Combine(rbRoot, currentSid);
+                        userDirs = Directory.Exists(userDir)
+                            ? (IEnumerable<string>)new[] { userDir }
+                            : GetSubDirectoriesSafe(rbRoot);
                     }
-                    catch { }
+                    else
+                    {
+                        userDirs = GetSubDirectoriesSafe(rbRoot);
+                    }
+
+                    foreach (var dir in userDirs)
+                    {
+                        try
+                        {
+                            // Les fichiers recyclés portent le préfixe $R
+                            foreach (var f in Directory.GetFiles(dir, "$R*", SearchOption.AllDirectories))
+                            {
+                                try { totalSize += new FileInfo(f).Length; totalItems++; }
+                                catch { }
+                            }
+                        }
+                        catch { }
+                    }
                 }
             }
 
@@ -133,5 +142,11 @@ public sealed class RecycleBinProvider : ICleaningProvider
             _logger.Error(err);
             return new CleanResult(0, 0, 1, new[] { err });
         }, ct);
+    }
+
+    private static IEnumerable<string> GetSubDirectoriesSafe(string path)
+    {
+        try { return Directory.GetDirectories(path); }
+        catch { return Array.Empty<string>(); }
     }
 }
