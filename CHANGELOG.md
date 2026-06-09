@@ -1,3 +1,10 @@
+## v0.2.7
+
+### Améliorations
+- 📋 **Notes de version** : historique complet de toutes les versions intégré dans l'application (menu CleanSlate ▾ → Notes de mise à jour).
+
+---
+
 ## v0.2.6
 
 ### Correctifs
