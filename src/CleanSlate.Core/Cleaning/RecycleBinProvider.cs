@@ -1,3 +1,5 @@
+using System.IO;
+using System.Runtime.InteropServices;
 using CleanSlate.Core.Abstractions;
 using CleanSlate.Core.Models;
 using CleanSlate.Core.Native;
@@ -35,24 +37,66 @@ public sealed class RecycleBinProvider : ICleaningProvider
         {
             progress?.Report(new ScanProgress(DisplayName, "Corbeille"));
 
+            long totalSize  = 0;
+            long totalItems = 0;
+
+            // Méthode 1 : SHQueryRecycleBin (API officielle, null = toutes les unités).
+            // HRESULT négatif = erreur ; S_FALSE (1) = succès sans éléments (on ignore).
             var info = new NativeMethods.SHQUERYRBINFO
             {
-                cbSize = System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.SHQUERYRBINFO>()
+                cbSize = Marshal.SizeOf<NativeMethods.SHQUERYRBINFO>()
             };
-
-            // pszRootPath = null → toutes les corbeilles de toutes les unités.
             int hr = NativeMethods.SHQueryRecycleBin(null, ref info);
-            if (hr != 0 || info.i64NumItems == 0)
+
+            if (hr >= 0 && info.i64NumItems > 0)
+            {
+                totalSize  = info.i64Size;
+                totalItems = info.i64NumItems;
+            }
+            else
+            {
+                // Méthode 2 (repli) : énumération directe de $Recycle.Bin sur chaque
+                // lecteur fixe. Couvre les cas où SHQueryRecycleBin retourne S_FALSE
+                // ou un code d'erreur non fatal sur certaines configs Windows 11.
+                foreach (var drive in DriveInfo.GetDrives()
+                    .Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+                {
+                    var rbPath = Path.Combine(drive.Name, "$Recycle.Bin");
+                    if (!Directory.Exists(rbPath)) continue;
+                    try
+                    {
+                        foreach (var userDir in Directory.GetDirectories(rbPath))
+                        {
+                            try
+                            {
+                                // Les fichiers recyclés portent le préfixe $R
+                                foreach (var f in Directory.GetFiles(
+                                    userDir, "$R*", SearchOption.AllDirectories))
+                                {
+                                    try
+                                    {
+                                        totalSize += new FileInfo(f).Length;
+                                        totalItems++;
+                                    }
+                                    catch { /* fichier inaccessible : on ignore */ }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            if (totalItems == 0)
                 return ScanResult.Empty(Id, DisplayName);
 
-            // On expose un unique « élément agrégé » représentant la corbeille,
-            // dont la taille reflète le contenu réel (pour l'aperçu).
             var item = new CleanableItem(
-                path: "Corbeille (toutes les unités)",
-                sizeBytes: info.i64Size,
-                category: CleaningCategory.Corbeille,
+                path:        "Corbeille (toutes les unités)",
+                sizeBytes:   totalSize,
+                category:    CleaningCategory.Corbeille,
                 isDirectory: false,
-                providerId: Id);
+                providerId:  Id);
 
             return new ScanResult(Id, DisplayName, new[] { item }, Array.Empty<string>());
         }, ct);

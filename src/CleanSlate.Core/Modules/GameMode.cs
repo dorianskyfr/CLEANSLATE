@@ -21,11 +21,32 @@ public sealed class GameModeOptions
     {
         ProcessNamesToSuspend = new[]
         {
+            // ─── Stockage cloud ────────────────────────────────────────
             "OneDrive", "Dropbox", "GoogleDriveFS",
-            "Spotify", "Slack", "Teams",
-            // Discord conservé actif : l'utilisateur peut être en communication vocale
+            // ─── Communication (Discord exclu — vocal possible) ────────
+            "Spotify",
+            "Slack", "Teams", "ms-teams",
+            "Skype", "Telegram", "WhatsApp", "Zoom",
+            // ─── Accès distant ─────────────────────────────────────────
+            "AnyDesk", "TeamViewer",
+            // ─── Lanceurs de jeux inactifs ─────────────────────────────
+            "EpicGamesLauncher", "EpicWebHelper",
+            "GalaxyClient",           // GOG Galaxy
+            "upc", "UbisoftConnect",  // Ubisoft Connect
+            "Origin", "EADesktop",    // EA App
+            // ─── Suite Adobe helpers ───────────────────────────────────
+            "CCLibrary", "AdobeIPCBroker",
+            // ─── Divers arrière-plan Windows ──────────────────────────
+            "Cortana", "SearchApp",
+            "yourphone",              // Lien téléphone Microsoft
+            "WinStore.App",           // Microsoft Store
         },
-        ServiceNamesToStop = Array.Empty<string>(), // vide par défaut : prudence
+        ServiceNamesToStop = new[]
+        {
+            "WSearch",    // Indexation Windows Search — réduit la charge disque
+            "DiagTrack",  // Télémétrie Connected User Experiences
+            "SysMain",    // SuperFetch/SysMain — peut libérer de la RAM disponible
+        },
     };
 }
 
