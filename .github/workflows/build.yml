@@ -72,28 +72,40 @@ jobs:
       - name: Publication en un seul .exe autonome
         run: dotnet publish src/CleanSlate.App -c Release -p:PublishProfile=SingleFile
 
+      - name: Génération des notes de version depuis CHANGELOG.md
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release_version }}
+        run: |
+          $version = $env:RELEASE_VERSION
+          $versionNum = $version.TrimStart('v')
+          $changelog = Get-Content -Raw -Path CHANGELOG.md
+          $pattern = '(?ms)^## v' + [regex]::Escape($versionNum) + '[ \t]*\r?\n(.*?)\r?\n---'
+          $match = [regex]::Match($changelog, $pattern)
+          $notes = if ($match.Success) { $match.Groups[1].Value.Trim() } else { '' }
+
+          $lines = @(
+            "## CleanSlate $version"
+            ''
+            "Utilitaire d'optimisation et de nettoyage PC pour Windows 10/11 (64 bits)."
+            ''
+            '### Téléchargement'
+            '**`CleanSlate.exe`** ci-dessous : exécutable **unique et autonome**'
+            '(runtime .NET 8 + WPF inclus). Aucune installation requise — double-cliquez.'
+            ''
+            '> ⚠️ Comme tout exécutable non signé, Windows SmartScreen peut afficher'
+            '> un avertissement au premier lancement (« Informations complémentaires »'
+            '> → « Exécuter quand même »).'
+            ''
+            $notes
+          )
+          ($lines -join "`n") | Set-Content -Path release_body.md -Encoding utf8
+
       - name: Création de la Release et envoi du .exe
         uses: softprops/action-gh-release@v2
         with:
           name: CleanSlate ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release_version }}
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release_version }}
-          generate_release_notes: true
+          generate_release_notes: false
           files: src/CleanSlate.App/bin/Release/net8.0-windows/win-x64/publish/CleanSlate.exe
-          body: |
-            ## CleanSlate ${{ github.ref_name }}
-
-            Utilitaire d'optimisation et de nettoyage PC pour Windows 10/11 (64 bits).
-
-            ### Téléchargement
-            **`CleanSlate.exe`** ci-dessous : exécutable **unique et autonome**
-            (runtime .NET 8 + WPF inclus). Aucune installation requise — double-cliquez.
-
-            > ⚠️ Comme tout exécutable non signé, Windows SmartScreen peut afficher
-            > un avertissement au premier lancement (« Informations complémentaires »
-            > → « Exécuter quand même »).
-
-            ### Contenu de cette version
-            Cinq modules : nettoyage de fichiers, surveillance mémoire, inventaire
-            des pilotes, Mode Jeu, optimisation système (démarrage + registre avec
-            sauvegarde obligatoire). Voir le `README` et `docs/LIMITES-TECHNIQUES.md`
-            pour les capacités et les limites honnêtes de chaque fonctionnalité.
+          body_path: release_body.md
