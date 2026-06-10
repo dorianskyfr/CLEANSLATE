@@ -6,100 +6,192 @@
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />    <!-- Démarrage -->
-            <RowDefinition Height="Auto" /> <!-- Registre -->
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Optimisation système" Style="{StaticResource HeaderText}" />
+        <TextBlock Grid.Row="0" Text="Optimisation système" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
 
-        <!-- ================= Programmes au démarrage ================= -->
-        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                Padding="12" Margin="0,16,0,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
 
-                <Grid Grid.Row="0" Margin="4,4,4,8">
-                    <TextBlock Text="Programmes au démarrage" Foreground="{DynamicResource TextBrush}"
-                               FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
-                    <Button Content="Actualiser" Style="{StaticResource SecondaryButton}"
-                            HorizontalAlignment="Right" Command="{Binding RefreshStartupCommand}" />
-                </Grid>
+            <!-- ===================== Démarrage & registre ===================== -->
+            <TabItem Header="Démarrage &amp; registre">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />    <!-- Démarrage -->
+                        <RowDefinition Height="Auto" /> <!-- Registre -->
+                    </Grid.RowDefinitions>
 
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding StartupEntries}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6"
-                                        Padding="12" Margin="4">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <TextBlock Text="{Binding Command}" Style="{StaticResource MutedText}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding LocationLabel}"
-                                                   Style="{StaticResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="12,0" />
-                                        <Button Grid.Column="2" Content="{Binding ToggleLabel}"
-                                                Style="{StaticResource SecondaryButton}"
-                                                Command="{Binding ToggleCommand}" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </Grid>
-        </Border>
+                    <!-- Programmes au démarrage -->
+                    <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-        <!-- ================= Nettoyage du registre ================= -->
-        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                Padding="16" Margin="0,16,0,0">
-            <StackPanel>
-                <TextBlock Text="Nettoyage du registre" Foreground="{DynamicResource TextBrush}"
-                           FontWeight="SemiBold" FontSize="15" />
-                <TextBlock Text="{Binding RegistryHonestNotice}" Style="{StaticResource MutedText}"
-                           Margin="0,6,0,10" />
+                            <Grid Grid.Row="0" Margin="4,4,4,8">
+                                <TextBlock Text="Programmes au démarrage" Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+                                <Button Content="Actualiser" Style="{StaticResource SecondaryButton}"
+                                        HorizontalAlignment="Right" Command="{Binding RefreshStartupCommand}" />
+                            </Grid>
 
-                <!-- Liste des entrées orphelines détectées -->
-                <ItemsControl ItemsSource="{Binding RegistryIssues}" MaxHeight="140">
-                    <ItemsControl.Template>
-                        <ControlTemplate>
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsPresenter />
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding StartupEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6"
+                                                    Padding="12" Margin="4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding Command}" Style="{StaticResource MutedText}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" Text="{Binding LocationLabel}"
+                                                               Style="{StaticResource MutedText}" VerticalAlignment="Center"
+                                                               Margin="12,0" />
+                                                    <Button Grid.Column="2" Content="{Binding ToggleLabel}"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            Command="{Binding ToggleCommand}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </ScrollViewer>
-                        </ControlTemplate>
-                    </ItemsControl.Template>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Margin="0,2" Foreground="{DynamicResource MutedBrush}" FontSize="12">
-                                <Run Text="{Binding ValueName, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
-                                <Run Text=" — " />
-                                <Run Text="{Binding Reason, Mode=OneWay}" />
-                            </TextBlock>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                        </Grid>
+                    </Border>
 
-                <TextBlock Text="{Binding RegistryStatus}" Style="{StaticResource MutedText}"
-                           Margin="0,10,0,10" />
+                    <!-- Nettoyage du registre -->
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                            Padding="16" Margin="0,16,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Nettoyage du registre" Foreground="{DynamicResource TextBrush}"
+                                       FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="{Binding RegistryHonestNotice}" Style="{StaticResource MutedText}"
+                                       Margin="0,6,0,10" />
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Analyser le registre" Style="{StaticResource SecondaryButton}"
-                            Command="{Binding ScanRegistryCommand}" />
-                    <Button Content="Corriger (avec sauvegarde)" Style="{StaticResource AccentButton}"
-                            Command="{Binding FixRegistryCommand}" />
-                </StackPanel>
-            </StackPanel>
-        </Border>
+                            <ItemsControl ItemsSource="{Binding RegistryIssues}" MaxHeight="120">
+                                <ItemsControl.Template>
+                                    <ControlTemplate>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </ControlTemplate>
+                                </ItemsControl.Template>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Margin="0,2" Foreground="{DynamicResource MutedBrush}" FontSize="12">
+                                            <Run Text="{Binding ValueName, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                                            <Run Text=" — " />
+                                            <Run Text="{Binding Reason, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Text="{Binding RegistryStatus}" Style="{StaticResource MutedText}"
+                                       Margin="0,10,0,10" />
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Analyser le registre" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding ScanRegistryCommand}" />
+                                <Button Content="Corriger (avec sauvegarde)" Style="{StaticResource AccentButton}"
+                                        Command="{Binding FixRegistryCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ========================= Windows Debloat ========================= -->
+            <TabItem Header="Windows Debloat">
+                <Grid Margin="0,16,0,0" DataContext="{Binding Debloat}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />  <!-- Notice -->
+                        <RowDefinition Height="Auto" />  <!-- Sélection -->
+                        <RowDefinition Height="*" />     <!-- Options -->
+                        <RowDefinition Height="Auto" />  <!-- Statut + résultats -->
+                        <RowDefinition Height="Auto" />  <!-- Bouton -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🧹" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="780" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,4">
+                        <Button Content="Tout cocher" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding SelectAllCommand}" />
+                        <Button Content="Tout décocher" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding SelectNoneCommand}" />
+                    </StackPanel>
+
+                    <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="8" Margin="0,4,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Options}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6"
+                                                Padding="12" Margin="4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
+                                                          VerticalAlignment="Top" Margin="0,2,12,0" />
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Description}" Style="{StaticResource MutedText}"
+                                                               Margin="0,4,0,0" />
+                                                </StackPanel>
+                                                <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}"
+                                                        CornerRadius="4" Padding="8,2" Height="22" VerticalAlignment="Top">
+                                                    <TextBlock Text="{Binding CategoryLabel}" FontSize="10"
+                                                               Foreground="{DynamicResource AccentBrush}" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
+                                   FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding ResultMessages}" MaxHeight="90" Margin="0,6,0,0">
+                            <ItemsControl.Template>
+                                <ControlTemplate>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter /></ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource MutedText}" Margin="0,1" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <Button Grid.Row="4" Content="Appliquer la sélection" Style="{StaticResource AccentButton}"
+                            HorizontalAlignment="Right" Margin="0,12,0,0"
+                            Command="{Binding ApplyCommand}" />
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

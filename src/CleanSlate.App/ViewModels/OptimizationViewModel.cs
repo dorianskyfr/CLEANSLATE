@@ -22,12 +22,15 @@ public sealed class OptimizationViewModel : ObservableObject
         IStartupManager startup,
         IRegistryCleaner registry,
         IBackupService backup,
+        IWindowsDebloater debloater,
         IDialogService dialogs)
     {
         _startup = startup;
         _registry = registry;
         _backup = backup;
         _dialogs = dialogs;
+
+        Debloat = new DebloatViewModel(debloater, dialogs);
 
         RefreshStartupCommand = new RelayCommand(LoadStartupEntries);
         ScanRegistryCommand = new AsyncRelayCommand(ScanRegistryAsync);
@@ -36,6 +39,9 @@ public sealed class OptimizationViewModel : ObservableObject
 
         LoadStartupEntries();
     }
+
+    /// <summary>Sous-catégorie « Windows Debloat » (anti-télémétrie, confidentialité, bloatware).</summary>
+    public DebloatViewModel Debloat { get; }
 
     // ----------------------------------------------------------- Démarrage
     public ObservableCollection<StartupEntryViewModel> StartupEntries { get; } = new();

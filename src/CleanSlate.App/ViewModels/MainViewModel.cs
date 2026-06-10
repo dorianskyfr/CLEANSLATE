@@ -9,6 +9,23 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v0.9 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Nouveau logo CleanSlate comme icône de l'application\n" +
+        "• Nettoyage : l'analyse scanne TOUTES les catégories — chaque ligne\n" +
+        "  affiche sa taille réelle (fini les « — » sur corbeille, cache, etc.)\n" +
+        "• Corbeille : détection corrigée (S_FALSE Windows 11) + repli via\n" +
+        "  les dossiers $Recycle.Bin — la vraie taille s'affiche\n" +
+        "• Lancement en administrateur par défaut + vérification automatique\n" +
+        "  des mises à jour au démarrage\n" +
+        "• Pilotes : interface repensée, centrée sur la mise à jour (on ne\n" +
+        "  liste plus les pilotes) — recherche + installation en un clic\n" +
+        "• Mode Jeu : nouvel onglet « Overclocking » — détecte votre carte\n" +
+        "  graphique et propose le profil idéal (perf / stabilité)\n" +
+        "• Optimisation : nouvel onglet « Windows Debloat » — anti-télémétrie,\n" +
+        "  confidentialité, suppression du bloatware, au choix avant exécution\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.3 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Bloqueur de pub système (onglet 🛡️) — bloque ~130 000 domaines\n" +
@@ -176,6 +193,39 @@ public sealed class MainViewModel : ObservableObject
         bool newDark = !IsDark;
         App.SwitchTheme(newDark);
         IsDark = newDark;
+    }
+
+    /// <summary>
+    /// Vérification automatique au démarrage : discrète. N'affiche un message que si
+    /// une mise à jour est disponible ; reste silencieuse en cas d'échec réseau ou si
+    /// l'application est déjà à jour (pas de pop-up intrusive au lancement).
+    /// </summary>
+    public async Task CheckUpdatesOnStartupAsync()
+    {
+        try
+        {
+            var info = await _updateService.CheckForUpdateAsync(CancellationToken.None);
+            if (info is null || !info.IsNewer) return;
+
+            UpdateStatus = $"Mise à jour v{info.Version} disponible — menu CleanSlate ▾ → Vérifier les mises à jour.";
+
+            var download = _dialogs.Confirm("Mise à jour disponible",
+                $"CleanSlate v{info.Version} est disponible (vous avez v{_updateService.CurrentVersion}).\n\n" +
+                $"Notes :\n{info.ReleaseNotes}\n\nTélécharger et installer maintenant ?");
+            if (!download) return;
+
+            UpdateStatus = "Téléchargement en cours…";
+            var progress = new Progress<double>(p => UpdateStatus = $"Téléchargement : {p:0}%…");
+            var path = await _updateService.DownloadAsync(info, progress, CancellationToken.None);
+            UpdateStatus = "Installation…";
+            _updateService.LaunchInstaller(path);
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch
+        {
+            // Échec silencieux : la vérification manuelle reste disponible dans le menu.
+            UpdateStatus = string.Empty;
+        }
     }
 
     private async Task CheckUpdatesAsync()

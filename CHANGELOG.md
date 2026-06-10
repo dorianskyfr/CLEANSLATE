@@ -1,3 +1,21 @@
+## v0.9
+
+### Nouveautés
+- 🎨 **Logo** : la nouvelle icône CleanSlate (balai) remplace l'icône générique du `.exe` et apparaît dans la barre de titre.
+- 🎮 **Overclocking** (Mode Jeu) : nouvel onglet qui détecte automatiquement votre carte graphique (NVIDIA / AMD / Intel) et propose le profil d'overclock idéal — le « sweet spot » entre performance et stabilité (offsets cœur/mémoire, limite de puissance, courbe de ventilation, étapes pas à pas + test de stabilité). Profil copiable en un clic.
+- 🛡️ **Windows Debloat** (Optimisation) : nouvel onglet pour désactiver la télémétrie Microsoft, renforcer la confidentialité (ID de publicité, historique d'activité, localisation), alléger l'interface (Cortana, recherche Web, suggestions/pubs) et retirer le bloatware préinstallé. Chaque action est cochée par l'utilisateur avant exécution.
+
+### Correctifs
+- 🧽 **Nettoyage** : l'analyse scanne désormais **toutes** les catégories — chaque ligne affiche sa taille réelle, qu'elle soit cochée ou non. Les cases ne contrôlent que ce qui sera nettoyé. Fini les « — » sur Corbeille, Cache des navigateurs, Journaux, Prefetch.
+- 🗑️ **Corbeille** : correction de la détection (HRESULT `S_FALSE` sur certaines configs Windows 11) avec repli robuste qui mesure directement les dossiers `$Recycle.Bin` — la vraie taille et le nombre d'éléments s'affichent.
+
+### Améliorations
+- 🔐 **Administrateur par défaut** : l'application démarre directement avec les droits administrateur (une seule invite UAC), pour que toutes les fonctions système marchent sans relance.
+- 🔄 **Mises à jour** : vérification automatique et discrète au démarrage (ne dérange que si une mise à jour est disponible).
+- 🧩 **Pilotes** : interface repensée et centrée sur l'essentiel — on ne liste plus les pilotes installés ; on recherche et on installe les mises à jour de pilotes (Windows Update) en un clic, avec un bouton « Tout installer ».
+
+---
+
 ## v0.3
 
 ### Nouveautés

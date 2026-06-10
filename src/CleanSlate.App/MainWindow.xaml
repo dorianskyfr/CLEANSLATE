@@ -6,6 +6,7 @@
         Title="CleanSlate — Optimisation et nettoyage PC"
         Height="720" Width="1060" MinHeight="560" MinWidth="860"
         WindowStartupLocation="CenterScreen"
+        Icon="Assets/cleanslate.png"
         Background="{DynamicResource BackgroundBrush}">
 
     <Window.Resources>
@@ -53,8 +54,11 @@
                             Background="Transparent" BorderThickness="0" Cursor="Hand"
                             Padding="0" Click="TitleMenuButton_Click">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🧹 CleanSlate" FontSize="18" FontWeight="Bold"
-                                       Foreground="{DynamicResource TextBrush}" />
+                            <Image Source="Assets/cleanslate.png" Width="24" Height="24"
+                                   Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="CleanSlate" FontSize="18" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       VerticalAlignment="Center" />
                             <TextBlock Text=" ▾" FontSize="12" Foreground="{DynamicResource MutedBrush}"
                                        VerticalAlignment="Bottom" Margin="0,0,0,2" />
                         </StackPanel>
