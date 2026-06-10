@@ -35,6 +35,12 @@ public partial class App : Application
         IActionLogger logger = new FileActionLogger();
         IDialogService dialogs = new DialogService();
 
+        // Préférences persistées (thème, taille de fenêtre) : appliquées avant
+        // l'affichage pour éviter tout « flash » du mauvais thème.
+        IAppSettingsService settingsSvc = new AppSettingsService();
+        var settings = settingsSvc.Load();
+        if (!settings.IsDarkTheme) SwitchTheme(false);
+
         var providers = new ICleaningProvider[]
         {
             new TempFilesProvider(logger),
@@ -58,6 +64,9 @@ public partial class App : Application
         IQuickRepairService repairSvc      = new QuickRepairService(logger);
         IUpdateService updateSvc           = new GitHubUpdateService();
         IAdBlockService adBlockSvc         = new DnsAdBlockService();
+        ISystemInfoService systemInfo      = new SystemInfoService(memoryMonitor);
+        IMaintenanceService maintenance    = new MaintenanceService(engine, memoryMonitor);
+        IDlssEnablerService dlssEnabler    = new DlssEnablerService();
 
         // Nettoyage de l'ancien blocage par fichier hosts (versions <= v0.9.2),
         // qui rendait le PC très lent et ne pouvait être désactivé sans Mode sans échec.
@@ -65,18 +74,42 @@ public partial class App : Application
 
         _ = gameMode.TryRecoverAsync(CancellationToken.None);
 
+        var dashboardVm    = new DashboardViewModel(systemInfo, maintenance, overclocking, dialogs);
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
         var memoryVm       = new MemoryViewModel(memoryMonitor, dialogs);
         var driversVm      = new DriversViewModel(dialogs);
-        var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dialogs);
+        var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dlssEnabler, dialogs);
         var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, debloater, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);
         var adBlockVm      = new AdBlockViewModel(adBlockSvc, dialogs);
 
         var mainVm = new MainViewModel(
-            cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm, updateSvc, dialogs);
+            dashboardVm, cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm,
+            updateSvc, settingsSvc, dialogs);
 
         var window = new MainWindow { DataContext = mainVm };
+
+        // Restauration de la taille de fenêtre de la session précédente.
+        window.Width = settings.WindowWidth;
+        window.Height = settings.WindowHeight;
+        if (settings.WindowMaximized) window.WindowState = WindowState.Maximized;
+
+        // Sauvegarde des préférences à la fermeture (thème + dimensions réelles,
+        // hors plein écran : RestoreBounds garde la taille « fenêtrée »).
+        window.Closing += (_, _) =>
+        {
+            bool maximized = window.WindowState == WindowState.Maximized;
+            var bounds = maximized ? window.RestoreBounds : new Rect(
+                window.Left, window.Top, window.ActualWidth, window.ActualHeight);
+            settingsSvc.Save(settingsSvc.Load() with
+            {
+                IsDarkTheme = IsDark,
+                WindowWidth = bounds.Width,
+                WindowHeight = bounds.Height,
+                WindowMaximized = maximized,
+            });
+        };
+
         window.Show();
 
         // Vérification discrète des mises à jour au démarrage (silencieuse si à jour).

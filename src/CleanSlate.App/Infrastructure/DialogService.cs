@@ -14,4 +14,10 @@ public sealed class DialogService : IDialogService
 
     public void Warn(string title, string message) =>
         MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+
+    public string? PickFolder(string title)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = title };
+        return dialog.ShowDialog() == true ? dialog.FolderName : null;
+    }
 }

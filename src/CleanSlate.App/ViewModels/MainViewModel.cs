@@ -9,6 +9,21 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.0 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Nouvel onglet « Accueil » : vue d'ensemble du système (Windows, CPU,\n" +
+        "  GPU, RAM, disques, uptime) et « Entretien en 1 clic » — nettoyage des\n" +
+        "  catégories sûres + optimisation RAM, avec bilan détaillé.\n" +
+        "• Mode Jeu : nouveau sous-onglet « DLSS Enabler » — détecte vos jeux\n" +
+        "  (Steam, Epic Games ou dossier manuel) et installe/désinstalle le mod\n" +
+        "  open-source DLSS Enabler (Super Resolution + Frame Generation, y\n" +
+        "  compris Multi Frame Generation x2/x3/x4, sur tout GPU DirectX 12)\n" +
+        "  directement dans le dossier du jeu, comme\n" +
+        "  DLSS Enabler Manager. Réservé aux jeux solo (anticheat).\n" +
+        "• Vos préférences sont enfin mémorisées : thème sombre/clair et taille\n" +
+        "  de fenêtre sont conservés d'une session à l'autre.\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.9.4 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Overclocking : application AUTOMATIQUE de l'overclock pour les cartes\n" +
@@ -118,12 +133,14 @@ public sealed class MainViewModel : ObservableObject
 
     private readonly IUpdateService _updateService;
     private readonly IDialogService _dialogs;
+    private readonly IAppSettingsService _settings;
     private NavigationItem _selectedItem = null!;
     private bool _isDark = App.IsDark;
     private string _updateStatus = string.Empty;
     private bool _isCheckingUpdate;
 
     public MainViewModel(
+        DashboardViewModel dashboard,
         CleaningViewModel cleaning,
         MemoryViewModel memory,
         DriversViewModel drivers,
@@ -132,15 +149,18 @@ public sealed class MainViewModel : ObservableObject
         QuickRepairViewModel quickRepair,
         AdBlockViewModel adBlock,
         IUpdateService updateService,
+        IAppSettingsService settings,
         IDialogService dialogs)
     {
         _updateService = updateService;
+        _settings = settings;
         _dialogs = dialogs;
 
         IsAdministrator = ElevationHelper.IsRunningAsAdministrator();
 
         Items = new ObservableCollection<NavigationItem>
         {
+            new("Accueil",          "🏠", dashboard),
             new("Nettoyage",        "🧹", cleaning),
             new("Mémoire",          "📊", memory),
             new("Pilotes",          "🧩", drivers),
@@ -233,6 +253,10 @@ public sealed class MainViewModel : ObservableObject
         bool newDark = !IsDark;
         App.SwitchTheme(newDark);
         IsDark = newDark;
+
+        // Le choix de thème survit au redémarrage (les autres préférences,
+        // comme la taille de fenêtre, sont préservées telles quelles).
+        _settings.Save(_settings.Load() with { IsDarkTheme = newDark });
     }
 
     /// <summary>

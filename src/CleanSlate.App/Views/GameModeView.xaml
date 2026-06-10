@@ -213,6 +213,69 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+
+            <!-- ================================ DLSS Enabler ================================ -->
+            <TabItem Header="DLSS Enabler">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,16,0,0"
+                              DataContext="{Binding DlssEnabler}">
+                    <StackPanel>
+
+                        <!-- Présentation honnête + avertissement anticheat -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🎯" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}"
+                                           MaxWidth="780" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Détection des jeux -->
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="🔍 Détecter mes jeux"
+                                    Style="{StaticResource AccentButton}"
+                                    Command="{Binding ScanGamesCommand}" />
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding Games}"
+                                      SelectedItem="{Binding SelectedGame}"
+                                      Padding="8,6" Margin="8,0,0,0" />
+                            <Button Grid.Column="2" Content="📁 Choisir un dossier…"
+                                    Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                    Command="{Binding PickFolderCommand}" />
+                        </Grid>
+
+                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
+                                   FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
+
+                        <!-- État du jeu sélectionné + actions -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16"
+                                Margin="0,12,0,0"
+                                Visibility="{Binding HasSelectedGame, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding SelectedGame.Name}" Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="Bold" FontSize="16" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding SelectedGame.InstallDir}" Style="{StaticResource MutedText}"
+                                           Margin="0,4,0,0" />
+                                <TextBlock Text="{Binding GameStatusText}" Foreground="{DynamicResource TextBrush}"
+                                           FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />
+
+                                <WrapPanel Margin="0,14,0,0">
+                                    <Button Content="⬇️ Installer DLSS Enabler" Style="{StaticResource AccentButton}"
+                                            Command="{Binding InstallCommand}" Margin="0,0,8,8" />
+                                    <Button Content="🗑️ Désinstaller" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding UninstallCommand}" Margin="0,0,8,8" />
+                                    <Button Content="🌐 Page du projet (GitHub)" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding OpenProjectPageCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>
