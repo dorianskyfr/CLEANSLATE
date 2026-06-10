@@ -9,9 +9,10 @@ namespace CleanSlate.App.ViewModels;
 
 /// <summary>
 /// Sous-catégorie « Overclocking » du Mode Jeu. Détecte la carte graphique et
-/// propose un profil équilibré (performance vs stabilité). Sur les cartes NVIDIA
+/// propose plusieurs profils (Sûr / Équilibré / Performance). Sur les cartes NVIDIA
 /// dédiées, l'overclock peut être appliqué automatiquement (NVAPI) avec un Reset ;
-/// sur les autres cartes, le profil est guidé pas à pas dans l'outil du constructeur.
+/// sur les autres cartes, le profil sélectionné est guidé pas à pas dans l'outil
+/// du constructeur.
 /// </summary>
 public sealed class OverclockingViewModel : ObservableObject
 {
@@ -21,7 +22,7 @@ public sealed class OverclockingViewModel : ObservableObject
     private readonly IDialogService _dialogs;
 
     private GpuInfo? _selectedGpu;
-    private OverclockProfile? _profile;
+    private OverclockProfile? _selectedProfile;
     private string _status = string.Empty;
     private bool _isBusy;
     private bool _isCheckingDriver;
@@ -35,9 +36,8 @@ public sealed class OverclockingViewModel : ObservableObject
         _dialogs = dialogs;
 
         RefreshCommand           = new RelayCommand(DetectGpus, () => !IsBusy);
-        CopyProfileCommand       = new RelayCommand(CopyProfile, () => Profile is { Recommended: true });
-        OpenAfterburnerCommand   = new RelayCommand(() => Open("https://www.msi.com/Landing/afterburner/graphics-cards"));
-        ApplyCommand             = new AsyncRelayCommand(ApplyAsync, () => Recommended && CanAutoApply && !IsBusy);
+        CopyProfileCommand       = new RelayCommand(CopyProfile, () => SelectedProfile is { Actionable: true });
+        ApplyCommand             = new AsyncRelayCommand(ApplyAsync, () => SelectedProfile is { Actionable: true } && CanAutoApply && !IsBusy);
         ResetCommand             = new AsyncRelayCommand(ResetAsync, () => CanAutoApply && !IsBusy);
         CheckDriverUpdateCommand = new AsyncRelayCommand(CheckDriverUpdateAsync, () => SelectedGpu is not null && !IsCheckingDriver);
         OpenLatestDriverCommand  = new RelayCommand(() => Open(_driverCheck!.DownloadUrl!), () => !string.IsNullOrEmpty(_driverCheck?.DownloadUrl));
@@ -46,10 +46,10 @@ public sealed class OverclockingViewModel : ObservableObject
     }
 
     public ObservableCollection<GpuInfo> Gpus { get; } = new();
+    public ObservableCollection<OverclockProfile> Profiles { get; } = new();
 
     public RelayCommand RefreshCommand            { get; }
     public RelayCommand CopyProfileCommand        { get; }
-    public RelayCommand OpenAfterburnerCommand    { get; }
     public AsyncRelayCommand ApplyCommand         { get; }
     public AsyncRelayCommand ResetCommand         { get; }
     public AsyncRelayCommand CheckDriverUpdateCommand { get; }
@@ -96,8 +96,8 @@ public sealed class OverclockingViewModel : ObservableObject
     public string AutoApplyNote => CanAutoApply
         ? "✅ Carte compatible : l'overclock peut être appliqué automatiquement (bouton « Appliquer l'overclock »). " +
           "Un bouton « Reset » remet tout à zéro à tout moment."
-        : "ℹ️ Application automatique non disponible pour cette carte — suivez les étapes guidées ci-dessous " +
-          "dans l'outil du constructeur (le profil reste optimal).";
+        : "ℹ️ Application automatique non disponible pour cette carte — suivez les étapes guidées du profil " +
+          "sélectionné dans l'outil du constructeur (le profil reste optimal).";
 
     public GpuInfo? SelectedGpu
     {
@@ -106,29 +106,33 @@ public sealed class OverclockingViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedGpu, value))
             {
-                Profile = value is null ? null : _advisor.Recommend(value);
                 OnPropertyChanged(nameof(GpuName));
                 OnPropertyChanged(nameof(GpuDetails));
                 OnPropertyChanged(nameof(HasGpu));
                 OnPropertyChanged(nameof(CanAutoApply));
                 OnPropertyChanged(nameof(AutoApplyNote));
-                ApplyCommand.RaiseCanExecuteChanged();
                 ResetCommand.RaiseCanExecuteChanged();
                 ClearDriverCheck();
                 CheckDriverUpdateCommand.RaiseCanExecuteChanged();
+
+                Profiles.Clear();
+                if (value is not null)
+                    foreach (var p in _advisor.RecommendProfiles(value, CanAutoApply)) Profiles.Add(p);
+                OnPropertyChanged(nameof(HasProfiles));
+
+                SelectedProfile = Profiles.FirstOrDefault(p => p.IsDefault) ?? Profiles.FirstOrDefault();
             }
         }
     }
 
-    public OverclockProfile? Profile
+    public OverclockProfile? SelectedProfile
     {
-        get => _profile;
-        private set
+        get => _selectedProfile;
+        set
         {
-            if (SetProperty(ref _profile, value))
+            if (SetProperty(ref _selectedProfile, value))
             {
                 OnPropertyChanged(nameof(HasProfile));
-                OnPropertyChanged(nameof(Recommended));
                 OnPropertyChanged(nameof(CoreOffsetDisplay));
                 OnPropertyChanged(nameof(MemoryOffsetDisplay));
                 OnPropertyChanged(nameof(PowerLimitDisplay));
@@ -147,19 +151,19 @@ public sealed class OverclockingViewModel : ObservableObject
     public ObservableCollection<string> Steps { get; } = new();
 
     public bool   HasGpu      => SelectedGpu is not null;
-    public bool   HasProfile  => Profile is not null;
-    public bool   Recommended => Profile is { Recommended: true };
+    public bool   HasProfile  => SelectedProfile is not null;
+    public bool   HasProfiles => Profiles.Count > 1;
     public string GpuName     => SelectedGpu?.Name ?? "Aucune carte graphique détectée";
     public string GpuDetails  => SelectedGpu is null
         ? string.Empty
         : $"VRAM : {SelectedGpu.VramDisplay}   •   Pilote : {SelectedGpu.DriverVersion ?? "?"}";
 
-    public string CoreOffsetDisplay   => Profile is null ? "—" : $"+{Profile.CoreOffsetMhz} MHz";
-    public string MemoryOffsetDisplay => Profile is null ? "—" : $"+{Profile.MemoryOffsetMhz} MHz";
-    public string PowerLimitDisplay   => Profile is null ? "—" : $"{Profile.PowerLimitPercent} %";
-    public string TempLimitDisplay    => Profile is null ? "—" : $"{Profile.TempLimitC} °C";
-    public string FanStrategy         => Profile?.FanStrategy ?? "—";
-    public string Rationale           => Profile?.Rationale ?? string.Empty;
+    public string CoreOffsetDisplay   => SelectedProfile is null ? "—" : $"+{SelectedProfile.CoreOffsetMhz} MHz";
+    public string MemoryOffsetDisplay => SelectedProfile is null ? "—" : $"+{SelectedProfile.MemoryOffsetMhz} MHz";
+    public string PowerLimitDisplay   => SelectedProfile is null ? "—" : $"{SelectedProfile.PowerLimitPercent} %";
+    public string TempLimitDisplay    => SelectedProfile is null ? "—" : $"{SelectedProfile.TempLimitC} °C";
+    public string FanStrategy         => SelectedProfile?.FanStrategy ?? "—";
+    public string Rationale           => SelectedProfile?.Rationale ?? string.Empty;
 
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
 
@@ -183,13 +187,14 @@ public sealed class OverclockingViewModel : ObservableObject
 
     private async Task ApplyAsync()
     {
-        if (SelectedGpu is null || Profile is null) return;
+        if (SelectedGpu is null || SelectedProfile is null) return;
 
+        var profile = SelectedProfile;
         var confirmed = _dialogs.Confirm(
             "Appliquer l'overclock",
-            $"CleanSlate va appliquer l'overclock à votre {SelectedGpu.Name} :\n\n" +
-            $"  • Fréquence cœur : +{Profile.CoreOffsetMhz} MHz\n" +
-            $"  • Fréquence mémoire : +{Profile.MemoryOffsetMhz} MHz\n\n" +
+            $"CleanSlate va appliquer le profil « {profile.Name} » à votre {SelectedGpu.Name} :\n\n" +
+            $"  • Fréquence cœur : +{profile.CoreOffsetMhz} MHz\n" +
+            $"  • Fréquence mémoire : +{profile.MemoryOffsetMhz} MHz\n\n" +
             "⚠️ EXPÉRIMENTAL. En cas d'instabilité (artefacts, écran noir, crash), cliquez sur " +
             "« Reset » pour tout annuler — les offsets ne survivent pas à un redémarrage. " +
             "Lancez ensuite un test de stabilité.\n\nContinuer ?");
@@ -200,7 +205,6 @@ public sealed class OverclockingViewModel : ObservableObject
         try
         {
             var gpu = SelectedGpu;
-            var profile = Profile;
             var result = await Task.Run(() => _overclocker.Apply(gpu, profile));
             Status = result.Message;
             if (result.Success)
@@ -284,9 +288,10 @@ public sealed class OverclockingViewModel : ObservableObject
 
     private void CopyProfile()
     {
-        if (Profile is null) return;
+        if (SelectedProfile is null) return;
+        var profile = SelectedProfile;
         var sb = new StringBuilder();
-        sb.AppendLine($"Profil d'overclocking recommandé — {GpuName}");
+        sb.AppendLine($"Profil d'overclocking « {profile.Name} » — {GpuName}");
         sb.AppendLine($"  Core Clock   : {CoreOffsetDisplay}");
         sb.AppendLine($"  Memory Clock : {MemoryOffsetDisplay}");
         sb.AppendLine($"  Power Limit  : {PowerLimitDisplay}");
@@ -295,7 +300,7 @@ public sealed class OverclockingViewModel : ObservableObject
         sb.AppendLine();
         sb.AppendLine("Étapes :");
         int n = 1;
-        foreach (var s in Profile.Steps) sb.AppendLine($"  {n++}. {s}");
+        foreach (var s in profile.Steps) sb.AppendLine($"  {n++}. {s}");
 
         try
         {

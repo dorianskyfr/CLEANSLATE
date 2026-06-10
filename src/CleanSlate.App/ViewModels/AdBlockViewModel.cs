@@ -1,3 +1,4 @@
+using System.Management;
 using CleanSlate.Core.Modules;
 using CleanSlate.App.Infrastructure;
 
@@ -16,20 +17,15 @@ public sealed class AdBlockViewModel : ObservableObject
         _dialogs = dialogs;
 
         ToggleCommand = new AsyncRelayCommand(ToggleAsync, () => !IsBusy);
-        UpdateListCommand = new AsyncRelayCommand(UpdateListAsync, () => !IsBusy);
 
         RefreshState();
     }
 
     public AsyncRelayCommand ToggleCommand { get; }
-    public AsyncRelayCommand UpdateListCommand { get; }
 
     public bool IsEnabled => _adBlock.IsEnabled;
-    public int BlockedDomainCount => _adBlock.BlockedDomainCount;
-    public string ToggleLabel => IsEnabled ? "Désactiver AdBlock" : "Activer AdBlock";
-    public string BlockedCountText => IsEnabled
-        ? $"{BlockedDomainCount:N0} domaines bloqués"
-        : "Inactif";
+    public string ToggleLabel => IsEnabled ? "Désactiver le blocage de pub (DNS)" : "Activer le blocage de pub (DNS)";
+    public string StatusDetails => _adBlock.StatusDetails;
 
     public string Status
     {
@@ -49,10 +45,7 @@ public sealed class AdBlockViewModel : ObservableObject
         private set
         {
             if (SetProperty(ref _isBusy, value))
-            {
                 ToggleCommand.RaiseCanExecuteChanged();
-                UpdateListCommand.RaiseCanExecuteChanged();
-            }
         }
     }
 
@@ -64,21 +57,20 @@ public sealed class AdBlockViewModel : ObservableObject
             var progress = new Progress<string>(msg => Status = msg);
             if (IsEnabled)
             {
-                Status = "Désactivation…";
-                await _adBlock.DisableAsync(CancellationToken.None);
-                Status = "AdBlock désactivé.";
+                await _adBlock.DisableAsync(progress, CancellationToken.None);
+                Status = "DNS système restauré — blocage de pub désactivé.";
             }
             else
             {
                 await _adBlock.EnableAsync(progress, CancellationToken.None);
-                Status = $"AdBlock activé — {_adBlock.BlockedDomainCount:N0} domaines bloqués.";
+                Status = $"DNS AdGuard activé ({DnsAdBlockService.PrimaryDns} / {DnsAdBlockService.SecondaryDns}).";
             }
         }
-        catch (UnauthorizedAccessException)
+        catch (Exception ex) when (ex is ManagementException or UnauthorizedAccessException)
         {
             Status = string.Empty;
             _dialogs.Warn("Droits insuffisants",
-                "La modification du fichier hosts requiert des droits administrateur.\n" +
+                "La modification de la configuration DNS requiert des droits administrateur.\n" +
                 "Relancez CleanSlate en tant qu'administrateur.");
         }
         catch (Exception ex)
@@ -93,32 +85,10 @@ public sealed class AdBlockViewModel : ObservableObject
         }
     }
 
-    private async Task UpdateListAsync()
-    {
-        IsBusy = true;
-        try
-        {
-            var progress = new Progress<string>(msg => Status = msg);
-            await _adBlock.UpdateListAsync(progress, CancellationToken.None);
-            Status = $"Liste mise à jour — {_adBlock.BlockedDomainCount:N0} domaines.";
-        }
-        catch (Exception ex)
-        {
-            Status = string.Empty;
-            _dialogs.Warn("Erreur de mise à jour", ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-            RefreshState();
-        }
-    }
-
     private void RefreshState()
     {
         OnPropertyChanged(nameof(IsEnabled));
-        OnPropertyChanged(nameof(BlockedDomainCount));
         OnPropertyChanged(nameof(ToggleLabel));
-        OnPropertyChanged(nameof(BlockedCountText));
+        OnPropertyChanged(nameof(StatusDetails));
     }
 }

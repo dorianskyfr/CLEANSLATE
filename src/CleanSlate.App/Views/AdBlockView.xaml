@@ -22,10 +22,12 @@
                 <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
                 <TextBlock TextWrapping="Wrap" MaxWidth="700"
                            Style="{StaticResource MutedText}">
-                    Bloque les publicités et les traqueurs pour <Bold>tous les navigateurs et toutes les applications</Bold>
-                    en ajoutant ~130 000 domaines malveillants au fichier hosts Windows
-                    (comme AdGuard Home, sans proxy). Nécessite des droits administrateur.
-                    Aucun logiciel supplémentaire installé — désactivation instantanée.
+                    Bloque les publicités, traqueurs et domaines malveillants pour
+                    <Bold>tous les navigateurs et toutes les applications</Bold> en basculant le DNS
+                    système vers AdGuard DNS (94.140.14.14 / 94.140.15.15). Léger et
+                    instantané — aucun fichier hosts modifié, aucun ralentissement.
+                    Nécessite des droits administrateur. Désactivation immédiate :
+                    la configuration DNS d'origine est restaurée.
                 </TextBlock>
             </StackPanel>
         </Border>
@@ -51,30 +53,26 @@
                                Foreground="{DynamicResource TextBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="AdBlock désactivé" />
+                                <Setter Property="Text" Value="Blocage de pub désactivé" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsEnabled}" Value="True">
-                                        <Setter Property="Text" Value="AdBlock activé" />
+                                        <Setter Property="Text" Value="Blocage de pub activé" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <TextBlock Text="{Binding BlockedCountText}" FontSize="12"
+                    <TextBlock Text="{Binding StatusDetails}" FontSize="12" TextWrapping="Wrap"
                                Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
                 </StackPanel>
             </StackPanel>
         </Border>
 
-        <!-- Boutons -->
+        <!-- Bouton -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
             <Button Content="{Binding ToggleLabel}"
                     Style="{StaticResource AccentButton}"
-                    Command="{Binding ToggleCommand}"
-                    Margin="0,0,12,0" />
-            <Button Content="🔄 Mettre à jour la liste"
-                    Style="{StaticResource SecondaryButton}"
-                    Command="{Binding UpdateListCommand}" />
+                    Command="{Binding ToggleCommand}" />
         </StackPanel>
 
         <!-- Progression / statut -->
@@ -86,12 +84,6 @@
                 <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
                            FontSize="13" VerticalAlignment="Center" />
             </StackPanel>
-        </Border>
-
-        <!-- Source info -->
-        <Border Grid.Row="5" VerticalAlignment="Bottom" Margin="0,0,0,0">
-            <TextBlock Text="Source : StevenBlack Unified Hosts — github.com/StevenBlack/hosts"
-                       Style="{StaticResource MutedText}" FontSize="11" />
         </Border>
     </Grid>
 </UserControl>

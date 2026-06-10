@@ -1,152 +1,161 @@
 using System.Diagnostics;
-using System.Net.Http;
+using System.Management;
+using System.Runtime.Versioning;
 using System.Text;
+using System.Text.Json;
 
 namespace CleanSlate.Core.Modules;
 
+/// <summary>
+/// Bloqueur de publicités/traqueurs au niveau DNS : bascule le DNS système vers
+/// AdGuard DNS (94.140.14.14 / 94.140.15.15), qui filtre publicités, traqueurs et
+/// domaines malveillants pour tous les navigateurs et toutes les applications.
+/// Contrairement à l'ancienne approche par fichier hosts (~130 000 entrées), cette
+/// méthode est instantanée, n'alourdit aucun processus, et se désactive en un clic
+/// (restauration du DNS d'origine sauvegardé avant activation).
+/// </summary>
 public interface IAdBlockService
 {
+    /// <summary>Vrai si CleanSlate a basculé le DNS système vers AdGuard.</summary>
     bool IsEnabled { get; }
-    int BlockedDomainCount { get; }
+
+    /// <summary>Description courte de l'état DNS actuel (adaptateurs concernés).</summary>
+    string StatusDetails { get; }
+
     Task EnableAsync(IProgress<string>? progress, CancellationToken ct);
-    Task DisableAsync(CancellationToken ct);
-    Task UpdateListAsync(IProgress<string>? progress, CancellationToken ct);
+    Task DisableAsync(IProgress<string>? progress, CancellationToken ct);
 }
 
-public sealed class HostsAdBlockService : IAdBlockService
+[SupportedOSPlatform("windows")]
+public sealed class DnsAdBlockService : IAdBlockService
 {
-    private const string StartMarker = "# ==== CleanSlate AdBlock START ====";
-    private const string EndMarker   = "# ==== CleanSlate AdBlock END ====";
-    private const string HostsListUrl =
-        "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts";
+    public const string PrimaryDns = "94.140.14.14";
+    public const string SecondaryDns = "94.140.15.15";
+
+    private static readonly string BackupPath =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                     "CleanSlate", "adblock_dns_backup.json");
+
+    // ---- Nettoyage de l'ancien blocage par fichier hosts (versions <= v0.9.2) ----
+    private const string LegacyStartMarker = "# ==== CleanSlate AdBlock START ====";
+    private const string LegacyEndMarker   = "# ==== CleanSlate AdBlock END ====";
 
     private static readonly string HostsPath =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
                      "drivers", "etc", "hosts");
 
-    private static readonly string CachePath =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                     "CleanSlate", "adblock_hosts.txt");
+    public bool IsEnabled => File.Exists(BackupPath);
 
-    public bool IsEnabled => ReadHosts().Contains(StartMarker, StringComparison.Ordinal);
-
-    public int BlockedDomainCount
+    public string StatusDetails
     {
         get
         {
-            var hosts = ReadHosts();
-            if (!hosts.Contains(StartMarker, StringComparison.Ordinal)) return 0;
-            return hosts.Split('\n')
-                        .Count(l => !l.StartsWith('#') && l.TrimStart().StartsWith("0.0.0.0"));
+            var adapters = new List<ManagementObject>();
+            try
+            {
+                adapters = GetActiveAdapters();
+                if (adapters.Count == 0) return "Aucun adaptateur réseau actif détecté.";
+
+                var names = string.Join(", ", adapters.Select(DescribeAdapter));
+                return IsEnabled
+                    ? $"DNS AdGuard ({PrimaryDns} / {SecondaryDns}) actif sur : {names}."
+                    : $"DNS système (par défaut/FAI) sur : {names}.";
+            }
+            catch (Exception ex) { return $"Statut DNS indisponible : {ex.Message}"; }
+            finally
+            {
+                foreach (var a in adapters) a.Dispose();
+            }
         }
     }
 
-    public async Task EnableAsync(IProgress<string>? progress, CancellationToken ct)
+    public Task EnableAsync(IProgress<string>? progress, CancellationToken ct) => Task.Run(() =>
     {
-        progress?.Report("Chargement de la liste de blocage…");
-        var blockList = await GetOrDownloadListAsync(progress, ct);
+        progress?.Report("Lecture de la configuration réseau…");
+        var adapters = GetActiveAdapters();
+        try
+        {
+            if (adapters.Count == 0)
+                throw new InvalidOperationException("Aucun adaptateur réseau actif détecté.");
 
-        progress?.Report("Mise à jour du fichier hosts…");
-        ApplyToHosts(blockList);
+            progress?.Report("Sauvegarde de la configuration DNS actuelle…");
+            var backup = new Dictionary<string, string[]>();
+            foreach (var adapter in adapters)
+            {
+                var settingId = (adapter["SettingID"] as string) ?? string.Empty;
+                if (string.IsNullOrEmpty(settingId)) continue;
+                var current = (adapter["DNSServerSearchOrder"] as string[]) ?? Array.Empty<string>();
+                backup[settingId] = current;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(BackupPath)!);
+            File.WriteAllText(BackupPath, JsonSerializer.Serialize(backup), Encoding.UTF8);
+
+            progress?.Report("Application du DNS AdGuard…");
+            foreach (var adapter in adapters)
+                SetDns(adapter, new[] { PrimaryDns, SecondaryDns });
+        }
+        finally
+        {
+            foreach (var a in adapters) a.Dispose();
+        }
 
         progress?.Report("Vidage du cache DNS…");
         FlushDns();
-    }
+    }, ct);
 
-    public Task DisableAsync(CancellationToken ct)
+    public Task DisableAsync(IProgress<string>? progress, CancellationToken ct) => Task.Run(() =>
     {
-        RemoveFromHosts();
+        progress?.Report("Restauration de la configuration DNS d'origine…");
+
+        Dictionary<string, string[]>? backup = null;
+        if (File.Exists(BackupPath))
+        {
+            try { backup = JsonSerializer.Deserialize<Dictionary<string, string[]>>(File.ReadAllText(BackupPath)); }
+            catch { backup = null; }
+        }
+
+        var adapters = GetActiveAdapters();
+        try
+        {
+            foreach (var adapter in adapters)
+            {
+                var settingId = (adapter["SettingID"] as string) ?? string.Empty;
+                var original = backup is not null && backup.TryGetValue(settingId, out var dns)
+                    ? dns
+                    : Array.Empty<string>();
+                SetDns(adapter, original);
+            }
+        }
+        finally
+        {
+            foreach (var a in adapters) a.Dispose();
+        }
+
+        if (File.Exists(BackupPath)) File.Delete(BackupPath);
+
+        progress?.Report("Vidage du cache DNS…");
         FlushDns();
-        return Task.CompletedTask;
-    }
+    }, ct);
 
-    public async Task UpdateListAsync(IProgress<string>? progress, CancellationToken ct)
+    private static List<ManagementObject> GetActiveAdapters()
     {
-        progress?.Report("Téléchargement de la liste mise à jour…");
-        var blockList = await DownloadListAsync(progress, ct);
-
-        Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
-        await File.WriteAllTextAsync(CachePath, blockList, Encoding.UTF8, ct);
-
-        if (IsEnabled)
-        {
-            progress?.Report("Application de la nouvelle liste…");
-            ApplyToHosts(blockList);
-            progress?.Report("Vidage du cache DNS…");
-            FlushDns();
-        }
-    }
-
-    private async Task<string> GetOrDownloadListAsync(IProgress<string>? progress, CancellationToken ct)
-    {
-        if (File.Exists(CachePath))
-        {
-            progress?.Report("Utilisation de la liste en cache…");
-            return await File.ReadAllTextAsync(CachePath, ct);
-        }
-
-        var list = await DownloadListAsync(progress, ct);
-        Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
-        await File.WriteAllTextAsync(CachePath, list, Encoding.UTF8, ct);
+        var list = new List<ManagementObject>();
+        using var searcher = new ManagementObjectSearcher(
+            "SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = TRUE");
+        foreach (var obj in searcher.Get())
+            list.Add((ManagementObject)obj);
         return list;
     }
 
-    private static async Task<string> DownloadListAsync(IProgress<string>? progress, CancellationToken ct)
+    private static string DescribeAdapter(ManagementObject adapter) =>
+        (adapter["Description"] as string) ?? "Adaptateur réseau";
+
+    private static void SetDns(ManagementObject adapter, string[] servers)
     {
-        progress?.Report("Téléchargement de la liste StevenBlack (~130 000 domaines)…");
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-AdBlock");
-        http.Timeout = TimeSpan.FromSeconds(60);
-        return await http.GetStringAsync(HostsListUrl, ct);
-    }
-
-    private static void ApplyToHosts(string blockList)
-    {
-        var current = ReadHosts();
-        var stripped = StripExistingBlock(current);
-
-        var entries = ExtractEntries(blockList);
-
-        var sb = new StringBuilder(stripped.TrimEnd());
-        sb.AppendLine();
-        sb.AppendLine();
-        sb.AppendLine(StartMarker);
-        foreach (var entry in entries)
-            sb.AppendLine(entry);
-        sb.AppendLine(EndMarker);
-
-        File.WriteAllText(HostsPath, sb.ToString(), Encoding.UTF8);
-    }
-
-    private static void RemoveFromHosts()
-    {
-        var current = ReadHosts();
-        File.WriteAllText(HostsPath, StripExistingBlock(current).TrimEnd() + Environment.NewLine, Encoding.UTF8);
-    }
-
-    private static string StripExistingBlock(string content)
-    {
-        var start = content.IndexOf(StartMarker, StringComparison.Ordinal);
-        if (start < 0) return content;
-        var end = content.IndexOf(EndMarker, start, StringComparison.Ordinal);
-        if (end < 0) return content[..start];
-        return content[..start] + content[(end + EndMarker.Length)..];
-    }
-
-    private static IEnumerable<string> ExtractEntries(string hostsContent)
-    {
-        foreach (var line in hostsContent.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.StartsWith("0.0.0.0", StringComparison.Ordinal))
-                yield return trimmed;
-        }
-    }
-
-    private static string ReadHosts()
-    {
-        try { return File.ReadAllText(HostsPath); }
-        catch { return string.Empty; }
+        using var inParams = adapter.GetMethodParameters("SetDNSServerSearchOrder");
+        inParams["DNSServerSearchOrder"] = servers.Length == 0 ? null : servers;
+        adapter.InvokeMethod("SetDNSServerSearchOrder", inParams, null);
     }
 
     private static void FlushDns()
@@ -160,5 +169,38 @@ public sealed class HostsAdBlockService : IAdBlockService
             })?.WaitForExit(5000);
         }
         catch { /* best effort */ }
+    }
+
+    /// <summary>
+    /// Supprime le bloc d'entrées ajouté par l'ancienne version (fichier hosts,
+    /// ~130 000 domaines) qui rendait le PC très lent et ne pouvait pas être
+    /// désactivé sans Mode sans échec. Appelé une fois au démarrage.
+    /// </summary>
+    public static void CleanupLegacyHostsBlock()
+    {
+        try
+        {
+            var content = File.ReadAllText(HostsPath);
+            var cleaned = StripLegacyBlock(content);
+            if (cleaned == content) return;
+
+            File.WriteAllText(HostsPath, cleaned, Encoding.UTF8);
+            FlushDns();
+        }
+        catch { /* best effort : nécessite des droits administrateur */ }
+    }
+
+    /// <summary>Logique pure de suppression du bloc, testable indépendamment du fichier hosts.</summary>
+    internal static string StripLegacyBlock(string hostsContent)
+    {
+        var start = hostsContent.IndexOf(LegacyStartMarker, StringComparison.Ordinal);
+        if (start < 0) return hostsContent;
+
+        var end = hostsContent.IndexOf(LegacyEndMarker, start, StringComparison.Ordinal);
+        var cleaned = end < 0
+            ? hostsContent[..start]
+            : hostsContent[..start] + hostsContent[(end + LegacyEndMarker.Length)..];
+
+        return cleaned.TrimEnd() + Environment.NewLine;
     }
 }

@@ -57,7 +57,11 @@ public partial class App : Application
         IWindowsDebloater debloater        = new WindowsDebloatService(logger);
         IQuickRepairService repairSvc      = new QuickRepairService(logger);
         IUpdateService updateSvc           = new GitHubUpdateService();
-        IAdBlockService adBlockSvc         = new HostsAdBlockService();
+        IAdBlockService adBlockSvc         = new DnsAdBlockService();
+
+        // Nettoyage de l'ancien blocage par fichier hosts (versions <= v0.9.2),
+        // qui rendait le PC très lent et ne pouvait être désactivé sans Mode sans échec.
+        DnsAdBlockService.CleanupLegacyHostsBlock();
 
         _ = gameMode.TryRecoverAsync(CancellationToken.None);
 

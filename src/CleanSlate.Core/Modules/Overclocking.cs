@@ -25,12 +25,13 @@ public sealed record GpuInfo(
 public enum GpuVendor { Nvidia, Amd, Intel, Unknown }
 
 /// <summary>
-/// Profil d'overclocking RECOMMANDÉ — le « sweet spot » entre gain de performance
-/// et stabilité (pas de crash). Ce sont des valeurs de DÉPART prudentes à appliquer
-/// dans un outil dédié (MSI Afterburner, AMD Adrenalin, Intel Arc Control), pas des
-/// réglages appliqués automatiquement.
+/// Un profil d'overclocking parmi plusieurs niveaux proposés (Sûr / Équilibré /
+/// Performance). <see cref="Actionable"/> indique si une action d'overclocking a
+/// vraiment du sens pour ce GPU (faux pour les iGPU non réglables, où un seul profil
+/// « Aucun » est renvoyé). <see cref="IsDefault"/> marque le profil présélectionné.
 /// </summary>
 public sealed record OverclockProfile(
+    string Name,
     int CoreOffsetMhz,
     int MemoryOffsetMhz,
     int PowerLimitPercent,
@@ -38,7 +39,8 @@ public sealed record OverclockProfile(
     string FanStrategy,
     string Rationale,
     IReadOnlyList<string> Steps,
-    bool Recommended);
+    bool Actionable,
+    bool IsDefault);
 
 /// <summary>
 /// Module Overclocking (sous-catégorie du Mode Jeu).
@@ -46,17 +48,19 @@ public sealed record OverclockProfile(
 /// ⚠️ HONNÊTETÉ TECHNIQUE : il n'existe AUCUNE API Windows universelle, gratuite et
 /// sûre pour appliquer un overclock GPU (cela passe par NVAPI / ADL / pilotes
 /// propriétaires, propre à chaque marque et risqué). CleanSlate fait donc le maximum
-/// utile et SÛR : il détecte la carte graphique et propose un profil de départ
-/// équilibré, à appliquer pas à pas dans l'outil officiel du constructeur, avec un
-/// test de stabilité. On ne touche jamais au matériel directement.
+/// utile et SÛR : il détecte la carte graphique et propose plusieurs profils de
+/// départ (du plus prudent au plus poussé). Sur NVIDIA dédié, CleanSlate applique
+/// lui-même les offsets (NVAPI) ; pour les autres cartes, le profil est à appliquer
+/// pas à pas dans l'outil officiel du constructeur, avec un test de stabilité.
 /// </summary>
 public interface IOverclockingAdvisor
 {
-    /// <summary>Détecte les cartes graphiques installées (WMI).</summary>
+    /// <summary>Détecte les cartes graphiques physiques installées (WMI, hors écrans virtuels).</summary>
     IReadOnlyList<GpuInfo> DetectGpus();
 
-    /// <summary>Calcule un profil d'overclock recommandé pour une carte donnée.</summary>
-    OverclockProfile Recommend(GpuInfo gpu);
+    /// <summary>Calcule les profils d'overclock proposés pour une carte donnée.</summary>
+    /// <param name="canAutoApply">Vrai si CleanSlate peut appliquer l'overclock lui-même (NVIDIA dédié + NVAPI).</param>
+    IReadOnlyList<OverclockProfile> RecommendProfiles(GpuInfo gpu, bool canAutoApply);
 }
 
 [SupportedOSPlatform("windows")]
@@ -75,6 +79,7 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
             {
                 var name = (obj["Name"] as string)?.Trim();
                 if (string.IsNullOrWhiteSpace(name)) continue;
+                if (IsVirtualAdapter(name!)) continue;
 
                 var compat = (obj["AdapterCompatibility"] as string) ?? string.Empty;
                 var vendor = DetectVendor(name + " " + compat);
@@ -99,98 +104,218 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
             .ToList();
     }
 
-    public OverclockProfile Recommend(GpuInfo gpu)
+    public IReadOnlyList<OverclockProfile> RecommendProfiles(GpuInfo gpu, bool canAutoApply)
     {
-        // Les iGPU (graphiques intégrés) ne s'overclockent pas utilement / sûrement.
         if (gpu.IsIntegrated)
         {
-            return new OverclockProfile(
-                CoreOffsetMhz: 0, MemoryOffsetMhz: 0, PowerLimitPercent: 0, TempLimitC: 0,
-                FanStrategy: "—",
-                Rationale: "Carte graphique intégrée détectée. L'overclocking d'un iGPU " +
-                           "n'apporte quasiment rien et dépend surtout du refroidissement du " +
-                           "portable/PC. Recommandation : ne pas overclocker — privilégiez un " +
-                           "bon profil d'alimentation « Performances » et un refroidissement propre.",
-                Steps: new[] { "Aucune action d'overclocking recommandée pour un GPU intégré." },
-                Recommended: false);
+            if (IsTunableIntelIGpu(gpu.Name))
+                return BuildIntelBoostProfiles(gpu, integrated: true);
+
+            return new[]
+            {
+                new OverclockProfile(
+                    Name: "Aucun",
+                    CoreOffsetMhz: 0, MemoryOffsetMhz: 0, PowerLimitPercent: 0, TempLimitC: 0,
+                    FanStrategy: "—",
+                    Rationale: "Carte graphique intégrée détectée. L'overclocking de ce type de GPU " +
+                               "n'apporte quasiment rien et dépend surtout du refroidissement du " +
+                               "portable/PC. Recommandation : ne pas overclocker — privilégiez un " +
+                               "bon profil d'alimentation « Performances » et un refroidissement propre.",
+                    Steps: new[] { "Aucune action d'overclocking recommandée pour ce GPU intégré." },
+                    Actionable: false,
+                    IsDefault: true),
+            };
         }
 
-        // Échelle prudente selon la marque. Les offsets mémoire sont plus tolérants
-        // que le cœur ; on vise la stabilité (pas de crash) avant le pic de FPS.
         return gpu.Vendor switch
         {
-            GpuVendor.Nvidia => new OverclockProfile(
-                CoreOffsetMhz: 120,
-                MemoryOffsetMhz: 600,
-                PowerLimitPercent: 110,
-                TempLimitC: 83,
-                FanStrategy: "Courbe agressive : ~60 % à 60 °C, 100 % à 80 °C",
-                Rationale: $"Pour une {gpu.Name} (architecture NVIDIA), le meilleur compromis " +
-                           "performance/stabilité passe par un léger offset cœur, un offset " +
-                           "mémoire plus généreux (la VRAM encaisse bien), la limite de " +
-                           "puissance au maximum et une courbe de ventilation plus ferme. " +
-                           "Astuce avancée : un undervolt (courbe V/F) donne des FPS similaires " +
-                           "avec moins de chaleur et zéro crash.",
-                Steps: BuildSteps("MSI Afterburner", 120, 600, 110),
-                Recommended: true),
-
-            GpuVendor.Amd => new OverclockProfile(
-                CoreOffsetMhz: 75,
-                MemoryOffsetMhz: 100,
-                PowerLimitPercent: 115,
-                TempLimitC: 85,
-                FanStrategy: "Courbe agressive : ~50 % à 60 °C, 100 % à 85 °C",
-                Rationale: $"Pour une {gpu.Name} (Radeon), on augmente la fréquence cœur " +
-                           "maximale modérément, on monte la limite de puissance, et on applique " +
-                           "un léger undervolt qui, sur Radeon, augmente souvent les FPS tout en " +
-                           "supprimant les crashs. La mémoire (Fast Timings) apporte un petit gain.",
-                Steps: BuildSteps("AMD Software : Adrenalin Edition (onglet Performances → Réglage)", 75, 100, 115),
-                Recommended: true),
-
-            GpuVendor.Intel => new OverclockProfile(
-                CoreOffsetMhz: 0,
-                MemoryOffsetMhz: 0,
-                PowerLimitPercent: 110,
-                TempLimitC: 90,
-                FanStrategy: "Courbe par défaut renforcée",
-                Rationale: $"Pour une {gpu.Name} (Intel Arc), l'overclocking se fait via le " +
-                           "« GPU Performance Boost » (un curseur de pourcentage, pas d'offset MHz) " +
-                           "et la limite de puissance. Gains modestes mais sûrs. Montez le boost " +
-                           "par paliers de 5 % en testant la stabilité.",
-                Steps: new[]
-                {
-                    "Ouvrez Intel Arc Control → Performance.",
-                    "Montez « GPU Performance Boost » à +10 % et la limite de puissance à 110 %.",
-                    "Lancez un benchmark (3DMark, ou un jeu exigeant) 15-20 min.",
-                    "Aucun artefact / crash ? Montez de +5 % et retestez. Sinon, redescendez de 5 %.",
-                },
-                Recommended: true),
-
-            _ => new OverclockProfile(
-                CoreOffsetMhz: 50,
-                MemoryOffsetMhz: 200,
-                PowerLimitPercent: 105,
-                TempLimitC: 83,
-                FanStrategy: "Courbe agressive",
-                Rationale: $"Carte « {gpu.Name} » non reconnue précisément. Profil générique très " +
-                           "prudent. Augmentez les valeurs par petits paliers en testant la stabilité.",
-                Steps: BuildSteps("l'outil d'overclocking de votre carte", 50, 200, 105),
-                Recommended: true),
+            GpuVendor.Nvidia => BuildNvidiaProfiles(gpu, canAutoApply),
+            GpuVendor.Amd    => BuildAmdProfiles(gpu),
+            GpuVendor.Intel  => BuildIntelBoostProfiles(gpu, integrated: false),
+            _                => BuildGenericProfiles(gpu),
         };
     }
 
-    private static IReadOnlyList<string> BuildSteps(string tool, int core, int mem, int power) => new[]
+    // ---------------------------------------------------------------- NVIDIA ----
+
+    private static IReadOnlyList<OverclockProfile> BuildNvidiaProfiles(GpuInfo gpu, bool canAutoApply)
     {
-        $"Installez et ouvrez {tool}.",
-        $"Réglez la limite de puissance (Power Limit) sur {power} % (le maximum disponible si inférieur).",
-        $"Appliquez un offset cœur (Core Clock) de +{core} MHz.",
-        $"Appliquez un offset mémoire (Memory Clock) de +{mem} MHz.",
-        "Appliquez une courbe de ventilation plus ferme et validez (✓ / Apply).",
-        "Lancez un test de stabilité 20-30 min (benchmark ou jeu exigeant) en surveillant la température et les artefacts.",
-        "Stable, sans crash ni artefact ? Vous pouvez tenter +15 MHz cœur / +50 MHz mémoire et retester.",
-        "Crash, écran noir, artefacts ou redémarrage du pilote ? Réduisez l'offset cœur de 30 MHz (puis la mémoire) jusqu'au retour à la stabilité.",
-        "Une fois un réglage stable trouvé, enregistrez-le comme profil et activez « appliquer au démarrage ».",
-    };
+        var fan = "Courbe agressive : ~60 % à 60 °C, 100 % à 80 °C";
+
+        return new[]
+        {
+            BuildNvidiaProfile(gpu, "Sûr",         core: 60,  mem: 300, power: 105, temp: 80,
+                "Courbe douce : ~55 % à 65 °C, 85 % à 80 °C", canAutoApply, isDefault: false,
+                tierNote: "Gain modeste mais quasi garanti, idéal pour vérifier la stabilité de base."),
+            BuildNvidiaProfile(gpu, "Équilibré",   core: 120, mem: 600, power: 110, temp: 83,
+                fan, canAutoApply, isDefault: true,
+                tierNote: "Le « sweet spot » : bon gain de FPS sans risque significatif sur une carte saine."),
+            BuildNvidiaProfile(gpu, "Performance", core: 180, mem: 900, power: 115, temp: 87,
+                "Courbe maximale : ~70 % à 55 °C, 100 % à 75 °C", canAutoApply, isDefault: false,
+                tierNote: "Pousse la carte plus loin — testez la stabilité plus longtemps avant de garder ce profil."),
+        };
+    }
+
+    private static OverclockProfile BuildNvidiaProfile(
+        GpuInfo gpu, string name, int core, int mem, int power, int temp, string fan,
+        bool canAutoApply, bool isDefault, string tierNote)
+    {
+        var rationale = $"Profil « {name} » pour une {gpu.Name} (architecture NVIDIA) : offset cœur " +
+                         $"+{core} MHz, offset mémoire +{mem} MHz (la VRAM encaisse bien des offsets " +
+                         $"plus généreux), limite de puissance à {power} % et température cible " +
+                         $"{temp} °C. {tierNote}";
+
+        var steps = canAutoApply
+            ? new[]
+              {
+                  $"Sélectionnez le profil « {name} » puis cliquez sur « Appliquer l'overclock » : " +
+                  "CleanSlate pose directement les offsets via NVAPI (aucun logiciel tiers requis).",
+                  $"Offsets posés : cœur +{core} MHz, mémoire +{mem} MHz.",
+                  "Lancez un test de stabilité (benchmark ou jeu exigeant) pendant 20-30 minutes en " +
+                  "surveillant la température et les artefacts.",
+                  "Stable, sans crash ni artefact ? Vous pouvez essayer le profil supérieur pour plus " +
+                  "de performance.",
+                  "Instable (artefacts, écran noir, crash, redémarrage du pilote) ? Cliquez sur « Reset » " +
+                  "pour annuler immédiatement, ou repassez au profil inférieur.",
+              }
+            : new[]
+              {
+                  "NVAPI n'est pas disponible sur ce système : ouvrez le logiciel de contrôle fourni " +
+                  "par le fabricant de votre carte.",
+                  $"Réglez la limite de puissance sur {power} %, l'offset cœur sur +{core} MHz et " +
+                  $"l'offset mémoire sur +{mem} MHz.",
+                  "Appliquez une courbe de ventilation plus ferme et validez.",
+                  "Lancez un test de stabilité 20-30 min en surveillant la température et les artefacts.",
+                  "Instable ? Réduisez l'offset cœur de 30 MHz puis la mémoire jusqu'au retour à la " +
+                  "stabilité.",
+              };
+
+        return new OverclockProfile(name, core, mem, power, temp, fan, rationale, steps,
+            Actionable: true, IsDefault: isDefault);
+    }
+
+    // ------------------------------------------------------------------- AMD ----
+
+    private static IReadOnlyList<OverclockProfile> BuildAmdProfiles(GpuInfo gpu)
+    {
+        return new[]
+        {
+            BuildAmdProfile(gpu, "Sûr",         core: 40,  mem: 50,  power: 110, temp: 80, isDefault: false,
+                tierNote: "Gain modeste mais quasi garanti."),
+            BuildAmdProfile(gpu, "Équilibré",   core: 75,  mem: 100, power: 115, temp: 85, isDefault: true,
+                tierNote: "Le « sweet spot » : bon compromis performance/stabilité."),
+            BuildAmdProfile(gpu, "Performance", core: 110, mem: 150, power: 120, temp: 90, isDefault: false,
+                tierNote: "Pousse la carte plus loin — testez longuement avant de garder ce profil."),
+        };
+    }
+
+    private static OverclockProfile BuildAmdProfile(
+        GpuInfo gpu, string name, int core, int mem, int power, int temp, bool isDefault, string tierNote)
+    {
+        var fan = "Courbe agressive : ~50 % à 60 °C, 100 % à 85 °C";
+        var rationale = $"Profil « {name} » pour une {gpu.Name} (Radeon) : offset cœur +{core} MHz, " +
+                         $"offset mémoire +{mem} MHz (Fast Timings), limite de puissance {power} % et " +
+                         $"température cible {temp} °C. Un léger undervolt en complément augmente " +
+                         $"souvent les FPS tout en supprimant les crashs. {tierNote}";
+
+        var steps = new[]
+        {
+            $"Sélectionnez le profil « {name} » puis ouvrez AMD Software : Adrenalin Edition → " +
+            "Performances → Réglage.",
+            $"Réglez la limite de puissance sur {power} %.",
+            $"Appliquez un offset cœur (Core Clock) de +{core} MHz.",
+            $"Appliquez un offset mémoire (Memory Clock) de +{mem} MHz.",
+            "Appliquez une courbe de ventilation plus ferme et validez (✓ / Apply).",
+            "Lancez un test de stabilité 20-30 min en surveillant la température et les artefacts.",
+            "Instable ? Réduisez l'offset cœur de 25 MHz (puis la mémoire) jusqu'au retour à la stabilité.",
+        };
+
+        return new OverclockProfile(name, core, mem, power, temp, fan, rationale, steps,
+            Actionable: true, IsDefault: isDefault);
+    }
+
+    // -------------------------------------------------------- Intel (boost %) ----
+
+    /// <summary>
+    /// Cartes/iGPU Intel récents (Arc dédié, Iris Xe, Arc Graphics intégré) : pas
+    /// d'offset MHz exposé, mais un curseur « GPU Performance Boost » (en %) dans
+    /// Intel Graphics Command Center / Arc Control. <see cref="OverclockProfile.PowerLimitPercent"/>
+    /// porte ici le pourcentage de boost.
+    /// </summary>
+    private static IReadOnlyList<OverclockProfile> BuildIntelBoostProfiles(GpuInfo gpu, bool integrated)
+    {
+        var what = integrated ? "GPU intégré (Iris Xe / Arc Graphics)" : "Intel Arc";
+        var coolingNote = integrated
+            ? " Sur un portable, assurez un bon flux d'air et un profil d'alimentation « Performances »."
+            : " Surveillez la température du boîtier (le partage de chaleur avec le CPU peut limiter le boost).";
+
+        return new[]
+        {
+            BuildIntelBoostProfile(gpu, "Sûr",         boost: 105, temp: 85, isDefault: false,
+                what, coolingNote, "Gain léger mais sûr."),
+            BuildIntelBoostProfile(gpu, "Équilibré",   boost: 110, temp: 90, isDefault: true,
+                what, coolingNote, "Le « sweet spot » recommandé."),
+            BuildIntelBoostProfile(gpu, "Performance", boost: 115, temp: 95, isDefault: false,
+                what, coolingNote, "Gain maximal — testez la stabilité plus longtemps."),
+        };
+    }
+
+    private static OverclockProfile BuildIntelBoostProfile(
+        GpuInfo gpu, string name, int boost, int temp, bool isDefault,
+        string what, string coolingNote, string tierNote)
+    {
+        var rationale = $"Profil « {name} » pour {gpu.Name} ({what}) : « GPU Performance Boost » à " +
+                         $"+{boost - 100} % et température cible {temp} °C. L'overclocking se fait via " +
+                         "ce curseur de pourcentage (pas d'offset MHz)." + coolingNote + " " + tierNote;
+
+        var steps = new[]
+        {
+            $"Sélectionnez le profil « {name} » puis ouvrez Intel Graphics Command Center (ou Arc " +
+            "Control sur les puces récentes) → Performance.",
+            $"Réglez « GPU Performance Boost » sur +{boost - 100} %.",
+            "Lancez un test de stabilité (benchmark ou jeu exigeant) pendant 15-20 minutes.",
+            "Aucun artefact ni ralentissement thermique excessif ? Vous pouvez essayer le profil " +
+            "supérieur. Sinon, repassez au profil inférieur.",
+        };
+
+        return new OverclockProfile(name, CoreOffsetMhz: 0, MemoryOffsetMhz: 0, PowerLimitPercent: boost,
+            TempLimitC: temp, FanStrategy: "Profil par défaut renforcé", Rationale: rationale, Steps: steps,
+            Actionable: true, IsDefault: isDefault);
+    }
+
+    // --------------------------------------------------------------- Générique ----
+
+    private static IReadOnlyList<OverclockProfile> BuildGenericProfiles(GpuInfo gpu)
+    {
+        return new[]
+        {
+            BuildGenericProfile(gpu, "Sûr",         core: 30, mem: 100, power: 103, temp: 80, isDefault: false),
+            BuildGenericProfile(gpu, "Équilibré",   core: 50, mem: 200, power: 105, temp: 83, isDefault: true),
+            BuildGenericProfile(gpu, "Performance", core: 70, mem: 300, power: 108, temp: 86, isDefault: false),
+        };
+    }
+
+    private static OverclockProfile BuildGenericProfile(
+        GpuInfo gpu, string name, int core, int mem, int power, int temp, bool isDefault)
+    {
+        var rationale = $"Carte « {gpu.Name} » non reconnue précisément. Profil « {name} » très prudent : " +
+                         $"offset cœur +{core} MHz, offset mémoire +{mem} MHz, limite de puissance {power} %. " +
+                         "Augmentez les valeurs par petits paliers en testant la stabilité.";
+
+        var steps = new[]
+        {
+            $"Sélectionnez le profil « {name} » puis ouvrez l'outil d'overclocking de votre carte.",
+            $"Réglez la limite de puissance sur {power} %.",
+            $"Appliquez un offset cœur de +{core} MHz et un offset mémoire de +{mem} MHz.",
+            "Lancez un test de stabilité 20-30 min en surveillant la température et les artefacts.",
+            "Instable ? Réduisez les offsets jusqu'au retour à la stabilité.",
+        };
+
+        return new OverclockProfile(name, core, mem, power, temp, "Courbe agressive", rationale, steps,
+            Actionable: true, IsDefault: isDefault);
+    }
+
+    // ----------------------------------------------------------------- Détection ----
 
     private static GpuVendor DetectVendor(string text)
     {
@@ -213,5 +338,33 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
         if (vendor == GpuVendor.Amd)
             return n.Contains("radeon graphics") || n.Contains("radeon(tm) graphics") || n.Contains("vega") && !n.Contains("rx");
         return false;
+    }
+
+    /// <summary>
+    /// Vrai si l'iGPU Intel supporte le réglage « GPU Performance Boost » (Iris Xe et
+    /// Arc Graphics intégré, contrairement aux anciens UHD/HD Graphics).
+    /// </summary>
+    internal static bool IsTunableIntelIGpu(string name)
+    {
+        var n = name.ToLowerInvariant();
+        if (n.Contains("iris") && n.Contains("xe")) return true;
+        if (n.Contains("arc") && n.Contains("graphics")) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Vrai si l'adaptateur n'est pas une carte graphique physique (écran virtuel
+    /// type Parsec, IDD, etc.) — à exclure de la liste de sélection.
+    /// </summary>
+    internal static bool IsVirtualAdapter(string name)
+    {
+        var n = name.ToLowerInvariant();
+        return n.Contains("parsec")
+            || n.Contains("virtual display")
+            || n.Contains("virtual monitor")
+            || n.Contains("remote display")
+            || n.Contains(" idd")
+            || n.StartsWith("idd")
+            || n.Contains("spacedesk");
     }
 }

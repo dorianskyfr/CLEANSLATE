@@ -9,6 +9,23 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v0.9.3 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Bloqueur de pub : remplacement complet par une bascule du DNS système\n" +
+        "  vers AdGuard DNS (94.140.14.14 / 94.140.15.15) — instantané, sans\n" +
+        "  ralentissement, désactivable en un clic (DNS d'origine restauré).\n" +
+        "  L'ancien blocage par fichier hosts est nettoyé automatiquement.\n" +
+        "• Mises à jour : l'exécutable est désormais remplacé par la nouvelle\n" +
+        "  version puis relancé — le raccourci/épingle reste à jour.\n" +
+        "• Overclocking : 3 profils par carte (Sûr / Équilibré / Performance)\n" +
+        "• Overclocking : Intel Iris Xe / Arc Graphics intégré reconnus avec\n" +
+        "  un vrai profil « GPU Performance Boost »\n" +
+        "• Overclocking : les écrans virtuels (Parsec, spacedesk, IDD…) ne\n" +
+        "  s'affichent plus comme cartes graphiques\n" +
+        "• Overclocking : bouton « MSI Afterburner » retiré (CleanSlate applique\n" +
+        "  lui-même l'overclock sur les cartes NVIDIA compatibles)\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.9.2 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Overclocking : nouveau bouton « Vérifier le dernier pilote disponible »\n" +

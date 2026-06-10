@@ -58,11 +58,13 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="⚠️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
                                 <TextBlock TextWrapping="Wrap" MaxWidth="780" Style="{StaticResource MutedText}">
-                                    CleanSlate détecte votre carte graphique et propose un profil de départ
-                                    équilibré (le « sweet spot » entre performance et stabilité). Pour des
-                                    raisons de sécurité, l'overclock <Bold>n'est pas appliqué automatiquement</Bold> :
-                                    vous l'appliquez pas à pas dans l'outil officiel (MSI Afterburner,
-                                    AMD Adrenalin, Intel Arc Control) puis vous testez la stabilité.
+                                    CleanSlate détecte votre carte graphique et propose plusieurs profils
+                                    de départ (Sûr, Équilibré, Performance). Sur les cartes NVIDIA dédiées,
+                                    CleanSlate <Bold>applique l'overclock lui-même</Bold> (NVAPI), avec un
+                                    bouton « Reset » pour tout annuler. Pour les autres cartes, le profil
+                                    sélectionné est à appliquer pas à pas dans l'outil officiel
+                                    (AMD Adrenalin, Intel Arc Control / Graphics Command Center) puis à
+                                    tester en stabilité.
                                 </TextBlock>
                             </StackPanel>
                         </Border>
@@ -128,8 +130,19 @@
                         <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,12,0,0"
                                 Visibility="{Binding HasProfile, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
-                                <TextBlock Text="Profil recommandé (sweet spot)" Foreground="{DynamicResource TextBrush}"
-                                           FontWeight="SemiBold" FontSize="15" Margin="0,0,0,12" />
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Profil :" Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding Profiles}"
+                                              SelectedItem="{Binding SelectedProfile}"
+                                              DisplayMemberPath="Name" Padding="8,6"
+                                              HorizontalAlignment="Left" MinWidth="180"
+                                              Visibility="{Binding HasProfiles, Converter={StaticResource BoolToVisibility}}" />
+                                </Grid>
 
                                 <UniformGrid Columns="5">
                                     <StackPanel Margin="0,0,8,0">
@@ -190,8 +203,6 @@
                                             Command="{Binding ResetCommand}" Margin="0,0,8,8" />
                                     <Button Content="📋 Copier le profil" Style="{StaticResource SecondaryButton}"
                                             Command="{Binding CopyProfileCommand}" Margin="0,0,8,8" />
-                                    <Button Content="⬇️ MSI Afterburner" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding OpenAfterburnerCommand}" Margin="0,0,8,8" />
                                 </WrapPanel>
 
                                 <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
