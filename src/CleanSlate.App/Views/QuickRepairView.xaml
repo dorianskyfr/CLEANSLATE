@@ -51,7 +51,7 @@
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
 
-                                    <!-- Bouton réparer (visible seulement si CanRepair et pas Pending/Checking) -->
+                                    <!-- Bouton réparer (visible seulement si CanRepair et statut Warning/Error) -->
                                     <Button Grid.Column="2"
                                             Content="Réparer"
                                             Padding="12,6" Margin="0"

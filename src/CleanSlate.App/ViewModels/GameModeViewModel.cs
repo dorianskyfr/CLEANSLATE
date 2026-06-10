@@ -41,16 +41,20 @@ public sealed class GameModeViewModel : ObservableObject
 
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
 
-    /// <summary>Liste (affichée) des applications suspendues par défaut.</summary>
+    /// <summary>Processus suspendus lors de l'activation.</summary>
     public string SuspendedAppsList =>
-        string.Join(", ", GameModeOptions.Default.ProcessNamesToSuspend);
+        string.Join("  •  ", GameModeOptions.Default.ProcessNamesToSuspend);
+
+    /// <summary>Services arrêtés lors de l'activation.</summary>
+    public string StoppedServicesList =>
+        string.Join("  •  ", GameModeOptions.Default.ServiceNamesToStop);
 
     public string HonestNotice =>
-        "Le Mode Jeu suspend (sans les fermer) quelques applications d'arrière-plan " +
-        "non essentielles, puis les reprend automatiquement à la désactivation. Les " +
-        "gains de performance sont très variables selon votre machine. Aucun processus " +
-        "système n'est touché. En cas de fermeture inattendue de l'app, l'état est " +
-        "restauré au prochain démarrage.";
+        "Le Mode Jeu suspend (sans les fermer) les applications d'arrière-plan non " +
+        "essentielles et arrête temporairement quelques services Windows, puis " +
+        "restaure l'état initial à la désactivation. Discord reste actif. " +
+        "Les gains varient selon la machine — en cas de fermeture brutale, " +
+        "l'état est restauré au prochain démarrage.";
 
     private async Task ToggleAsync()
     {

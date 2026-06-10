@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using CleanSlate.Core.Modules;
 using CleanSlate.App.Infrastructure;
 

@@ -1,3 +1,5 @@
+using System.IO;
+using System.Runtime.InteropServices;
 using CleanSlate.Core.Abstractions;
 using CleanSlate.Core.Models;
 using CleanSlate.Core.Native;
@@ -40,7 +42,7 @@ public sealed class RecycleBinProvider : ICleaningProvider
 
             var info = new NativeMethods.SHQUERYRBINFO
             {
-                cbSize = System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.SHQUERYRBINFO>()
+                cbSize = Marshal.SizeOf<NativeMethods.SHQUERYRBINFO>()
             };
 
             // pszRootPath = null → toutes les corbeilles de toutes les unités.
@@ -70,14 +72,12 @@ public sealed class RecycleBinProvider : ICleaningProvider
             if (count == 0)
                 return ScanResult.Empty(Id, DisplayName);
 
-            // On expose un unique « élément agrégé » représentant la corbeille,
-            // dont la taille reflète le contenu réel (pour l'aperçu).
             var item = new CleanableItem(
                 path: $"Corbeille ({count} élément(s), toutes les unités)",
                 sizeBytes: size,
                 category: CleaningCategory.Corbeille,
                 isDirectory: false,
-                providerId: Id);
+                providerId:  Id);
 
             return new ScanResult(Id, DisplayName, new[] { item }, Array.Empty<string>());
         }, ct);
