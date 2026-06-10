@@ -49,9 +49,10 @@ public sealed record OverclockProfile(
 /// sûre pour appliquer un overclock GPU (cela passe par NVAPI / ADL / pilotes
 /// propriétaires, propre à chaque marque et risqué). CleanSlate fait donc le maximum
 /// utile et SÛR : il détecte la carte graphique et propose plusieurs profils de
-/// départ (du plus prudent au plus poussé). Sur NVIDIA dédié, CleanSlate applique
-/// lui-même les offsets (NVAPI) ; pour les autres cartes, le profil est à appliquer
-/// pas à pas dans l'outil officiel du constructeur, avec un test de stabilité.
+/// départ (du plus prudent au plus poussé). Sur NVIDIA et AMD dédiés, CleanSlate
+/// applique lui-même les réglages (NVAPI / ADL OverdriveN) ; pour les autres cartes
+/// (Intel notamment), le profil est à appliquer pas à pas dans l'outil officiel du
+/// constructeur, avec un test de stabilité.
 /// </summary>
 public interface IOverclockingAdvisor
 {
@@ -59,7 +60,7 @@ public interface IOverclockingAdvisor
     IReadOnlyList<GpuInfo> DetectGpus();
 
     /// <summary>Calcule les profils d'overclock proposés pour une carte donnée.</summary>
-    /// <param name="canAutoApply">Vrai si CleanSlate peut appliquer l'overclock lui-même (NVIDIA dédié + NVAPI).</param>
+    /// <param name="canAutoApply">Vrai si CleanSlate peut appliquer l'overclock lui-même (NVIDIA ou AMD dédié, via NVAPI/ADL).</param>
     IReadOnlyList<OverclockProfile> RecommendProfiles(GpuInfo gpu, bool canAutoApply);
 }
 
@@ -130,7 +131,7 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
         return gpu.Vendor switch
         {
             GpuVendor.Nvidia => BuildNvidiaProfiles(gpu, canAutoApply),
-            GpuVendor.Amd    => BuildAmdProfiles(gpu),
+            GpuVendor.Amd    => BuildAmdProfiles(gpu, canAutoApply),
             GpuVendor.Intel  => BuildIntelBoostProfiles(gpu, integrated: false),
             _                => BuildGenericProfiles(gpu),
         };
@@ -196,21 +197,21 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
 
     // ------------------------------------------------------------------- AMD ----
 
-    private static IReadOnlyList<OverclockProfile> BuildAmdProfiles(GpuInfo gpu)
+    private static IReadOnlyList<OverclockProfile> BuildAmdProfiles(GpuInfo gpu, bool canAutoApply)
     {
         return new[]
         {
-            BuildAmdProfile(gpu, "Sûr",         core: 40,  mem: 50,  power: 110, temp: 80, isDefault: false,
+            BuildAmdProfile(gpu, "Sûr",         core: 40,  mem: 50,  power: 110, temp: 80, canAutoApply, isDefault: false,
                 tierNote: "Gain modeste mais quasi garanti."),
-            BuildAmdProfile(gpu, "Équilibré",   core: 75,  mem: 100, power: 115, temp: 85, isDefault: true,
+            BuildAmdProfile(gpu, "Équilibré",   core: 75,  mem: 100, power: 115, temp: 85, canAutoApply, isDefault: true,
                 tierNote: "Le « sweet spot » : bon compromis performance/stabilité."),
-            BuildAmdProfile(gpu, "Performance", core: 110, mem: 150, power: 120, temp: 90, isDefault: false,
+            BuildAmdProfile(gpu, "Performance", core: 110, mem: 150, power: 120, temp: 90, canAutoApply, isDefault: false,
                 tierNote: "Pousse la carte plus loin — testez longuement avant de garder ce profil."),
         };
     }
 
     private static OverclockProfile BuildAmdProfile(
-        GpuInfo gpu, string name, int core, int mem, int power, int temp, bool isDefault, string tierNote)
+        GpuInfo gpu, string name, int core, int mem, int power, int temp, bool canAutoApply, bool isDefault, string tierNote)
     {
         var fan = "Courbe agressive : ~50 % à 60 °C, 100 % à 85 °C";
         var rationale = $"Profil « {name} » pour une {gpu.Name} (Radeon) : offset cœur +{core} MHz, " +
@@ -218,17 +219,31 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
                          $"température cible {temp} °C. Un léger undervolt en complément augmente " +
                          $"souvent les FPS tout en supprimant les crashs. {tierNote}";
 
-        var steps = new[]
-        {
-            $"Sélectionnez le profil « {name} » puis ouvrez AMD Software : Adrenalin Edition → " +
-            "Performances → Réglage.",
-            $"Réglez la limite de puissance sur {power} %.",
-            $"Appliquez un offset cœur (Core Clock) de +{core} MHz.",
-            $"Appliquez un offset mémoire (Memory Clock) de +{mem} MHz.",
-            "Appliquez une courbe de ventilation plus ferme et validez (✓ / Apply).",
-            "Lancez un test de stabilité 20-30 min en surveillant la température et les artefacts.",
-            "Instable ? Réduisez l'offset cœur de 25 MHz (puis la mémoire) jusqu'au retour à la stabilité.",
-        };
+        var steps = canAutoApply
+            ? new[]
+              {
+                  $"Sélectionnez le profil « {name} » puis cliquez sur « Appliquer l'overclock » : " +
+                  "CleanSlate pose directement les fréquences via AMD ADL / OverdriveN (aucun logiciel " +
+                  "tiers requis).",
+                  $"Réglages posés : cœur +{core} MHz, mémoire +{mem} MHz, limite de puissance {power} %.",
+                  "Lancez un test de stabilité (benchmark ou jeu exigeant) pendant 20-30 minutes en " +
+                  "surveillant la température et les artefacts.",
+                  "Stable, sans crash ni artefact ? Vous pouvez essayer le profil supérieur pour plus " +
+                  "de performance.",
+                  "Instable (artefacts, écran noir, crash, redémarrage du pilote) ? Cliquez sur « Reset » " +
+                  "pour annuler immédiatement (retour aux valeurs d'usine), ou repassez au profil inférieur.",
+              }
+            : new[]
+              {
+                  $"Sélectionnez le profil « {name} » puis ouvrez AMD Software : Adrenalin Edition → " +
+                  "Performances → Réglage.",
+                  $"Réglez la limite de puissance sur {power} %.",
+                  $"Appliquez un offset cœur (Core Clock) de +{core} MHz.",
+                  $"Appliquez un offset mémoire (Memory Clock) de +{mem} MHz.",
+                  "Appliquez une courbe de ventilation plus ferme et validez (✓ / Apply).",
+                  "Lancez un test de stabilité 20-30 min en surveillant la température et les artefacts.",
+                  "Instable ? Réduisez l'offset cœur de 25 MHz (puis la mémoire) jusqu'au retour à la stabilité.",
+              };
 
         return new OverclockProfile(name, core, mem, power, temp, fan, rationale, steps,
             Actionable: true, IsDefault: isDefault);

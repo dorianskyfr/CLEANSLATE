@@ -10,9 +10,9 @@ namespace CleanSlate.App.ViewModels;
 /// <summary>
 /// Sous-catégorie « Overclocking » du Mode Jeu. Détecte la carte graphique et
 /// propose plusieurs profils (Sûr / Équilibré / Performance). Sur les cartes NVIDIA
-/// dédiées, l'overclock peut être appliqué automatiquement (NVAPI) avec un Reset ;
-/// sur les autres cartes, le profil sélectionné est guidé pas à pas dans l'outil
-/// du constructeur.
+/// et AMD dédiées, l'overclock peut être appliqué automatiquement (NVAPI / ADL
+/// OverdriveN) avec un Reset ; sur les autres cartes (Intel notamment), le profil
+/// sélectionné est guidé pas à pas dans l'outil du constructeur.
 /// </summary>
 public sealed class OverclockingViewModel : ObservableObject
 {
@@ -90,7 +90,7 @@ public sealed class OverclockingViewModel : ObservableObject
         ? "⬇️ Télécharger le pilote NVIDIA"
         : "🌐 Ouvrir la page des pilotes";
 
-    /// <summary>Vrai si l'application automatique de l'overclock est possible (NVIDIA dédiée).</summary>
+    /// <summary>Vrai si l'application automatique de l'overclock est possible (NVIDIA ou AMD dédiée).</summary>
     public bool CanAutoApply => SelectedGpu is not null && _overclocker.CanApply(SelectedGpu);
 
     public string AutoApplyNote => CanAutoApply

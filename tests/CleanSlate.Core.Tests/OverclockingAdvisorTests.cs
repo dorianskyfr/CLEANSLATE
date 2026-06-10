@@ -96,4 +96,16 @@ public class OverclockingAdvisorTests
         Assert.Contains(withAuto[0].Steps, s => s.Contains("Appliquer l'overclock"));
         Assert.DoesNotContain(withoutAuto[0].Steps, s => s.Contains("Appliquer l'overclock"));
     }
+
+    [Fact]
+    public void RecommendProfiles_Amd_LesEtapesMentionnentLApplicationAutomatiqueSiDisponible()
+    {
+        var gpu = new GpuInfo("AMD Radeon RX 6700 XT", GpuVendor.Amd, 12L * 1024 * 1024 * 1024, "31.0.0.0", IsIntegrated: false);
+
+        var withAuto = Advisor.RecommendProfiles(gpu, canAutoApply: true);
+        var withoutAuto = Advisor.RecommendProfiles(gpu, canAutoApply: false);
+
+        Assert.Contains(withAuto[0].Steps, s => s.Contains("Appliquer l'overclock"));
+        Assert.DoesNotContain(withoutAuto[0].Steps, s => s.Contains("Appliquer l'overclock"));
+    }
 }

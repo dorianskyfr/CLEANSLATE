@@ -9,6 +9,17 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v0.9.4 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Overclocking : application AUTOMATIQUE de l'overclock pour les cartes\n" +
+        "  AMD Radeon dédiées (fréquences cœur/mémoire + limite de puissance via\n" +
+        "  ADL OverdriveN) — boutons « Appliquer » + « Reset », comme pour NVIDIA.\n" +
+        "  Intel reste en profil guidé.\n" +
+        "• Mises à jour : la notification « Mise à jour disponible » reste affichée\n" +
+        "  même après avoir quitté et relancé CleanSlate, tant qu'elle n'est pas\n" +
+        "  installée.\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.9.3 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Bloqueur de pub : remplacement complet par une bascule du DNS système\n" +
@@ -228,15 +239,31 @@ public sealed class MainViewModel : ObservableObject
     /// Vérification automatique au démarrage : discrète. N'affiche un message que si
     /// une mise à jour est disponible ; reste silencieuse en cas d'échec réseau ou si
     /// l'application est déjà à jour (pas de pop-up intrusive au lancement).
+    ///
+    /// Une mise à jour détectée mais non installée lors d'une session précédente est
+    /// rechargée immédiatement (persistée sur disque) : la notification « Mise à jour
+    /// disponible » reste donc affichée même après avoir quitté puis relancé
+    /// CleanSlate, jusqu'à ce qu'elle soit installée.
     /// </summary>
     public async Task CheckUpdatesOnStartupAsync()
     {
+        var pending = _updateService.LoadPendingUpdate();
+        if (pending is not null)
+            UpdateStatus = PendingUpdateMessage(pending.Version);
+
         try
         {
             var info = await _updateService.CheckForUpdateAsync(CancellationToken.None);
-            if (info is null || !info.IsNewer) return;
+            if (info is null) return;
 
-            UpdateStatus = $"Mise à jour v{info.Version} disponible — menu CleanSlate ▾ → Vérifier les mises à jour.";
+            _updateService.SavePendingUpdate(info);
+            if (!info.IsNewer)
+            {
+                if (pending is not null) UpdateStatus = string.Empty;
+                return;
+            }
+
+            UpdateStatus = PendingUpdateMessage(info.Version);
 
             var download = _dialogs.Confirm("Mise à jour disponible",
                 $"CleanSlate v{info.Version} est disponible (vous avez v{_updateService.CurrentVersion}).\n\n" +
@@ -247,15 +274,20 @@ public sealed class MainViewModel : ObservableObject
             var progress = new Progress<double>(p => UpdateStatus = $"Téléchargement : {p:0}%…");
             var path = await _updateService.DownloadAsync(info, progress, CancellationToken.None);
             UpdateStatus = "Installation…";
+            _updateService.SavePendingUpdate(null);
             _updateService.LaunchInstaller(path);
             System.Windows.Application.Current.Shutdown();
         }
         catch
         {
-            // Échec silencieux : la vérification manuelle reste disponible dans le menu.
-            UpdateStatus = string.Empty;
+            // Échec réseau silencieux : la vérification manuelle reste disponible dans le menu.
+            // Si une mise à jour était déjà connue, on garde la notification affichée.
+            if (pending is null) UpdateStatus = string.Empty;
         }
     }
+
+    private static string PendingUpdateMessage(string version) =>
+        $"Mise à jour v{version} disponible — menu CleanSlate ▾ → Vérifier les mises à jour.";
 
     private async Task CheckUpdatesAsync()
     {
@@ -271,6 +303,8 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
+            _updateService.SavePendingUpdate(info);
+
             if (!info.IsNewer)
             {
                 UpdateStatus = string.Empty;
@@ -283,12 +317,19 @@ public sealed class MainViewModel : ObservableObject
                 $"CleanSlate v{info.Version} est disponible (vous avez v{_updateService.CurrentVersion}).\n\n" +
                 $"Notes :\n{info.ReleaseNotes}\n\nTélécharger et installer maintenant ?");
 
-            if (!download) { UpdateStatus = string.Empty; return; }
+            if (!download)
+            {
+                // La notification reste affichée (et persistée) tant que la mise à
+                // jour n'est pas installée — y compris après fermeture de l'application.
+                UpdateStatus = PendingUpdateMessage(info.Version);
+                return;
+            }
 
             UpdateStatus = "Téléchargement en cours…";
             var progress = new Progress<double>(p => UpdateStatus = $"Téléchargement : {p:0}%…");
             var path = await _updateService.DownloadAsync(info, progress, CancellationToken.None);
             UpdateStatus = "Installation…";
+            _updateService.SavePendingUpdate(null);
             _updateService.LaunchInstaller(path);
             System.Windows.Application.Current.Shutdown();
         }
