@@ -1,6 +1,5 @@
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Principal;
 using CleanSlate.Core.Abstractions;
 using CleanSlate.Core.Models;
 using CleanSlate.Core.Native;
@@ -38,77 +37,99 @@ public sealed class RecycleBinProvider : ICleaningProvider
         {
             progress?.Report(new ScanProgress(DisplayName, "Corbeille"));
 
-            long totalSize  = 0;
-            long totalItems = 0;
+            long size = 0;
+            long count = 0;
 
-            // Méthode 1 : SHQueryRecycleBin (API officielle, null = toutes les unités).
-            // HRESULT négatif = erreur ; S_FALSE (1) = succès sans éléments (on ignore).
             var info = new NativeMethods.SHQUERYRBINFO
             {
                 cbSize = Marshal.SizeOf<NativeMethods.SHQUERYRBINFO>()
             };
+
+            // pszRootPath = null → toutes les corbeilles de toutes les unités.
+            // SHQueryRecycleBin renvoie S_OK (0) OU S_FALSE (1) en succès : sur
+            // certaines configs Windows 11 il renvoie S_FALSE alors que la corbeille
+            // contient bien des fichiers. On accepte donc 0 et 1.
             int hr = NativeMethods.SHQueryRecycleBin(null, ref info);
-
-            if (hr >= 0 && info.i64NumItems > 0)
+            if ((hr == 0 || hr == 1) && info.i64Size >= 0 && info.i64NumItems >= 0)
             {
-                totalSize  = info.i64Size;
-                totalItems = info.i64NumItems;
+                size = info.i64Size;
+                count = info.i64NumItems;
             }
-            else
+
+            // Repli robuste : si l'API renvoie 0 (ou échoue), on mesure directement
+            // le contenu des dossiers $Recycle.Bin de chaque lecteur fixe. Cela évite
+            // l'affichage erroné « 0 o / — » quand la corbeille n'est pas vide.
+            if (count == 0 || size == 0)
             {
-                // Méthode 2 (repli) : cibler directement le dossier $Recycle.Bin de
-                // l'utilisateur courant (via son SID). Plus fiable que d'énumérer tous
-                // les sous-dossiers, qui peuvent être inaccessibles (autres utilisateurs).
-                var currentSid = WindowsIdentity.GetCurrent().User?.ToString();
-
-                foreach (var drive in DriveInfo.GetDrives()
-                    .Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+                var (fsSize, fsCount) = MeasureRecycleBinFromDisk(ct);
+                if (fsCount > 0)
                 {
-                    var rbRoot = Path.Combine(drive.Name, "$Recycle.Bin");
-                    if (!Directory.Exists(rbRoot)) continue;
-
-                    // Préférer le dossier SID courant ; sinon énumérer tous les dossiers.
-                    IEnumerable<string> userDirs;
-                    if (currentSid != null)
-                    {
-                        var userDir = Path.Combine(rbRoot, currentSid);
-                        userDirs = Directory.Exists(userDir)
-                            ? (IEnumerable<string>)new[] { userDir }
-                            : GetSubDirectoriesSafe(rbRoot);
-                    }
-                    else
-                    {
-                        userDirs = GetSubDirectoriesSafe(rbRoot);
-                    }
-
-                    foreach (var dir in userDirs)
-                    {
-                        try
-                        {
-                            // Les fichiers recyclés portent le préfixe $R
-                            foreach (var f in Directory.GetFiles(dir, "$R*", SearchOption.AllDirectories))
-                            {
-                                try { totalSize += new FileInfo(f).Length; totalItems++; }
-                                catch { }
-                            }
-                        }
-                        catch { }
-                    }
+                    size = fsSize;
+                    count = fsCount;
                 }
             }
 
-            if (totalItems == 0)
+            if (count == 0)
                 return ScanResult.Empty(Id, DisplayName);
 
             var item = new CleanableItem(
-                path:        "Corbeille (toutes les unités)",
-                sizeBytes:   totalSize,
-                category:    CleaningCategory.Corbeille,
+                path: $"Corbeille ({count} élément(s), toutes les unités)",
+                sizeBytes: size,
+                category: CleaningCategory.Corbeille,
                 isDirectory: false,
                 providerId:  Id);
 
             return new ScanResult(Id, DisplayName, new[] { item }, Array.Empty<string>());
         }, ct);
+    }
+
+    /// <summary>
+    /// Mesure le contenu réel des corbeilles en parcourant les dossiers
+    /// <c>&lt;lecteur&gt;:\$Recycle.Bin</c> de toutes les unités fixes. Les fichiers
+    /// de données portent le préfixe <c>$R</c> ; les métadonnées <c>$I</c> sont
+    /// minuscules et ignorées dans le décompte des éléments.
+    /// </summary>
+    private static (long size, long count) MeasureRecycleBinFromDisk(CancellationToken ct)
+    {
+        long size = 0;
+        long count = 0;
+
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!drive.IsReady || drive.DriveType != DriveType.Fixed) continue;
+
+            var binRoot = Path.Combine(drive.RootDirectory.FullName, "$Recycle.Bin");
+            if (!Directory.Exists(binRoot)) continue;
+
+            // Chaque sous-dossier correspond au SID d'un utilisateur.
+            IEnumerable<string> sidDirs;
+            try { sidDirs = Directory.EnumerateDirectories(binRoot); }
+            catch { continue; }
+
+            foreach (var sidDir in sidDirs)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    foreach (var file in Directory.EnumerateFiles(sidDir, "*", SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            var fi = new FileInfo(file);
+                            size += fi.Length;
+                            // On compte les fichiers de données $R… comme « éléments ».
+                            if (Path.GetFileName(file).StartsWith("$R", StringComparison.OrdinalIgnoreCase))
+                                count++;
+                        }
+                        catch { /* fichier verrouillé / inaccessible : ignoré */ }
+                    }
+                }
+                catch { /* accès refusé sur la corbeille d'un autre utilisateur : ignoré */ }
+            }
+        }
+
+        return (size, count);
     }
 
     public Task<CleanResult> CleanAsync(
@@ -142,11 +163,5 @@ public sealed class RecycleBinProvider : ICleaningProvider
             _logger.Error(err);
             return new CleanResult(0, 0, 1, new[] { err });
         }, ct);
-    }
-
-    private static IEnumerable<string> GetSubDirectoriesSafe(string path)
-    {
-        try { return Directory.GetDirectories(path); }
-        catch { return Array.Empty<string>(); }
     }
 }

@@ -15,8 +15,15 @@
     <AssemblyName>CleanSlate</AssemblyName>
     <!-- Manifeste pour la gestion de l'élévation UAC. -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon></ApplicationIcon>
+    <!-- Icône de l'exécutable (logo CleanSlate). -->
+    <ApplicationIcon>Assets\cleanslate.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- Ressources embarquées : icône de la fenêtre + logo. -->
+  <ItemGroup>
+    <Resource Include="Assets\cleanslate.ico" />
+    <Resource Include="Assets\cleanslate.png" />
+  </ItemGroup>
 
   <!--
     Distribution en un SEUL .exe autonome : voir le profil de publication

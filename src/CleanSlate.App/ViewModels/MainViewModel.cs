@@ -9,6 +9,60 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v0.9.3 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Bloqueur de pub : remplacement complet par une bascule du DNS système\n" +
+        "  vers AdGuard DNS (94.140.14.14 / 94.140.15.15) — instantané, sans\n" +
+        "  ralentissement, désactivable en un clic (DNS d'origine restauré).\n" +
+        "  L'ancien blocage par fichier hosts est nettoyé automatiquement.\n" +
+        "• Mises à jour : l'exécutable est désormais remplacé par la nouvelle\n" +
+        "  version puis relancé — le raccourci/épingle reste à jour.\n" +
+        "• Overclocking : 3 profils par carte (Sûr / Équilibré / Performance)\n" +
+        "• Overclocking : Intel Iris Xe / Arc Graphics intégré reconnus avec\n" +
+        "  un vrai profil « GPU Performance Boost »\n" +
+        "• Overclocking : les écrans virtuels (Parsec, spacedesk, IDD…) ne\n" +
+        "  s'affichent plus comme cartes graphiques\n" +
+        "• Overclocking : bouton « MSI Afterburner » retiré (CleanSlate applique\n" +
+        "  lui-même l'overclock sur les cartes NVIDIA compatibles)\n" +
+        "• Overclocking : nouveau bouton « Vérifier le dernier pilote disponible »\n" +
+        "  qui interroge directement NVIDIA (catalogue officiel) pour comparer votre\n" +
+        "  pilote installé à la toute dernière version (au-delà de Windows Update,\n" +
+        "  souvent en retard) — version, date, taille et téléchargement direct.\n" +
+        "  Pour AMD/Intel : lien direct vers l'outil de détection officiel.\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.9.1 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Overclocking : application AUTOMATIQUE de l'overclock pour les cartes\n" +
+        "  NVIDIA (offsets cœur/mémoire via NVAPI) — bouton « Appliquer » + « Reset »\n" +
+        "  Les cartes AMD/Intel gardent le profil guidé à appliquer à la main.\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.9 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Nouveau logo CleanSlate comme icône de l'application\n" +
+        "• Nettoyage : l'analyse scanne TOUTES les catégories — chaque ligne\n" +
+        "  affiche sa taille réelle (fini les « — » sur corbeille, cache, etc.)\n" +
+        "• Corbeille : détection corrigée (S_FALSE Windows 11) + repli via\n" +
+        "  les dossiers $Recycle.Bin — la vraie taille s'affiche\n" +
+        "• Lancement en administrateur par défaut + vérification automatique\n" +
+        "  des mises à jour au démarrage\n" +
+        "• Pilotes : interface repensée, centrée sur la mise à jour (on ne\n" +
+        "  liste plus les pilotes) — recherche + installation en un clic\n" +
+        "• Mode Jeu : nouvel onglet « Overclocking » — détecte votre carte\n" +
+        "  graphique et propose le profil idéal (perf / stabilité)\n" +
+        "• Optimisation : nouvel onglet « Windows Debloat » — anti-télémétrie,\n" +
+        "  confidentialité, suppression du bloatware, au choix avant exécution\n\n" +
+
+        "─────────────────────────────\n" +
+        "v0.3 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Bloqueur de pub système (onglet 🛡️) — bloque ~130 000 domaines\n" +
+        "  via le fichier hosts (AdGuard-style, tous navigateurs + apps)\n" +
+        "• Cache navigateurs : détection multi-profils (Chrome, Edge, Brave,\n" +
+        "  Vivaldi, Opera, Opera GX) — correction de l'affichage « 0 o »\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.2.7 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Notes de version complètes intégrées dans l'application\n\n" +
@@ -65,6 +119,7 @@ public sealed class MainViewModel : ObservableObject
         GameModeViewModel gameMode,
         OptimizationViewModel optimization,
         QuickRepairViewModel quickRepair,
+        AdBlockViewModel adBlock,
         IUpdateService updateService,
         IDialogService dialogs)
     {
@@ -81,6 +136,7 @@ public sealed class MainViewModel : ObservableObject
             new("Mode Jeu",         "🎮", gameMode),
             new("Optimisation",     "⚙️", optimization),
             new("Réparation rapide","🛠️", quickRepair),
+            new("Bloqueur de pub",  "🛡️", adBlock),
         };
         _selectedItem = Items[0];
 
@@ -166,6 +222,39 @@ public sealed class MainViewModel : ObservableObject
         bool newDark = !IsDark;
         App.SwitchTheme(newDark);
         IsDark = newDark;
+    }
+
+    /// <summary>
+    /// Vérification automatique au démarrage : discrète. N'affiche un message que si
+    /// une mise à jour est disponible ; reste silencieuse en cas d'échec réseau ou si
+    /// l'application est déjà à jour (pas de pop-up intrusive au lancement).
+    /// </summary>
+    public async Task CheckUpdatesOnStartupAsync()
+    {
+        try
+        {
+            var info = await _updateService.CheckForUpdateAsync(CancellationToken.None);
+            if (info is null || !info.IsNewer) return;
+
+            UpdateStatus = $"Mise à jour v{info.Version} disponible — menu CleanSlate ▾ → Vérifier les mises à jour.";
+
+            var download = _dialogs.Confirm("Mise à jour disponible",
+                $"CleanSlate v{info.Version} est disponible (vous avez v{_updateService.CurrentVersion}).\n\n" +
+                $"Notes :\n{info.ReleaseNotes}\n\nTélécharger et installer maintenant ?");
+            if (!download) return;
+
+            UpdateStatus = "Téléchargement en cours…";
+            var progress = new Progress<double>(p => UpdateStatus = $"Téléchargement : {p:0}%…");
+            var path = await _updateService.DownloadAsync(info, progress, CancellationToken.None);
+            UpdateStatus = "Installation…";
+            _updateService.LaunchInstaller(path);
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch
+        {
+            // Échec silencieux : la vérification manuelle reste disponible dans le menu.
+            UpdateStatus = string.Empty;
+        }
     }
 
     private async Task CheckUpdatesAsync()

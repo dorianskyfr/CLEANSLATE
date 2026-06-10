@@ -13,14 +13,23 @@ public sealed class GameModeViewModel : ObservableObject
     private readonly IDialogService _dialogs;
     private string _status = "Mode Jeu inactif.";
 
-    public GameModeViewModel(IGameMode gameMode, IDialogService dialogs)
+    public GameModeViewModel(
+        IGameMode gameMode,
+        IOverclockingAdvisor overclockingAdvisor,
+        IGpuOverclocker overclocker,
+        IGpuDriverChecker driverChecker,
+        IDialogService dialogs)
     {
         _gameMode = gameMode;
         _dialogs = dialogs;
         ToggleCommand = new AsyncRelayCommand(ToggleAsync);
+        Overclocking = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
     }
 
     public AsyncRelayCommand ToggleCommand { get; }
+
+    /// <summary>Sous-catégorie « Overclocking » (détection GPU + profil recommandé).</summary>
+    public OverclockingViewModel Overclocking { get; }
 
     public bool IsActive => _gameMode.IsActive;
     public string ToggleLabel => IsActive ? "Désactiver le Mode Jeu" : "Activer le Mode Jeu";

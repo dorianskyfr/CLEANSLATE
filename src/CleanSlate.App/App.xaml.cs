@@ -46,29 +46,41 @@ public partial class App : Application
         };
         var engine = new CleaningEngine(providers, logger);
 
-        IMemoryMonitor memoryMonitor     = new MemoryMonitor();
-        IDriverInventory driverInventory = new WmiDriverInventory();
-        IGameMode gameMode               = new GameModeService(logger);
-        IStartupManager startupManager   = new StartupManager(logger);
-        IRegistryCleaner registryCleaner = new RegistryCleaner(logger);
-        IBackupService backupService     = new RegistryBackupService(logger);
-        IQuickRepairService repairSvc    = new QuickRepairService(logger);
-        IUpdateService updateSvc         = new GitHubUpdateService();
+        IMemoryMonitor memoryMonitor       = new MemoryMonitor();
+        IGameMode gameMode                 = new GameModeService(logger);
+        IOverclockingAdvisor overclocking  = new OverclockingAdvisor();
+        IGpuOverclocker gpuOverclocker     = new GpuOverclocker();
+        IGpuDriverChecker driverChecker    = new GpuDriverChecker();
+        IStartupManager startupManager     = new StartupManager(logger);
+        IRegistryCleaner registryCleaner   = new RegistryCleaner(logger);
+        IBackupService backupService       = new RegistryBackupService(logger);
+        IWindowsDebloater debloater        = new WindowsDebloatService(logger);
+        IQuickRepairService repairSvc      = new QuickRepairService(logger);
+        IUpdateService updateSvc           = new GitHubUpdateService();
+        IAdBlockService adBlockSvc         = new DnsAdBlockService();
+
+        // Nettoyage de l'ancien blocage par fichier hosts (versions <= v0.9.2),
+        // qui rendait le PC très lent et ne pouvait être désactivé sans Mode sans échec.
+        DnsAdBlockService.CleanupLegacyHostsBlock();
 
         _ = gameMode.TryRecoverAsync(CancellationToken.None);
 
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
         var memoryVm       = new MemoryViewModel(memoryMonitor, dialogs);
-        var driversVm      = new DriversViewModel(driverInventory, dialogs);
-        var gameModeVm     = new GameModeViewModel(gameMode, dialogs);
-        var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, dialogs);
+        var driversVm      = new DriversViewModel(dialogs);
+        var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dialogs);
+        var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, debloater, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);
+        var adBlockVm      = new AdBlockViewModel(adBlockSvc, dialogs);
 
         var mainVm = new MainViewModel(
-            cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, updateSvc, dialogs);
+            cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm, updateSvc, dialogs);
 
         var window = new MainWindow { DataContext = mainVm };
         window.Show();
+
+        // Vérification discrète des mises à jour au démarrage (silencieuse si à jour).
+        _ = mainVm.CheckUpdatesOnStartupAsync();
 
         logger.Info("CleanSlate démarré.");
     }

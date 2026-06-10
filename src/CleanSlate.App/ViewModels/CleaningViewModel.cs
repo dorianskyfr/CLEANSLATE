@@ -48,12 +48,30 @@ public sealed class CleaningViewModel : ObservableObject
         Categories = new ObservableCollection<CategoryViewModel>(
             _engine.Providers.Select(p => new CategoryViewModel(p)));
 
+        // Le total récupérable et l'activation du bouton « Nettoyer » dépendent des
+        // cases cochées : on réagit donc aux changements de sélection.
+        foreach (var c in Categories)
+            c.PropertyChanged += OnCategoryChanged;
+
         ScanCommand   = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
         CleanCommand  = new AsyncRelayCommand(CleanAsync, CanClean);
         CancelCommand = new RelayCommand(() => _cts?.Cancel(), () => IsBusy);
 
         AvailableDrives = new ObservableCollection<DriveInfoViewModel>(LoadDrives());
     }
+
+    private void OnCategoryChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(CategoryViewModel.IsSelected)) return;
+        RecomputeSelectedTotal();
+        CleanCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>Le total récupérable reflète uniquement les catégories cochées (ce qui sera nettoyé).</summary>
+    private void RecomputeSelectedTotal() =>
+        TotalRecoverableBytes = Categories
+            .Where(c => c.IsSelected && c.HasScanned)
+            .Sum(c => c.RecoverableBytes);
 
     public ObservableCollection<CategoryViewModel>  Categories      { get; }
     public ObservableCollection<DriveInfoViewModel> AvailableDrives { get; }
@@ -118,8 +136,9 @@ public sealed class CleaningViewModel : ObservableObject
     // =====================================================================
     private async Task ScanAsync()
     {
-        // On scanne TOUTES les catégories pour que chacune affiche sa taille.
-        // La sélection (checkbox) contrôle uniquement ce qui sera nettoyé.
+        // On analyse TOUTES les catégories afin que chaque ligne affiche sa taille
+        // réelle, qu'elle soit cochée ou non. Les cases ne contrôlent QUE ce qui
+        // sera ensuite nettoyé.
         var all = Categories.ToList();
 
         IsBusy = true;
@@ -132,6 +151,7 @@ public sealed class CleaningViewModel : ObservableObject
         try
         {
             int total = all.Count;
+            // Itère provider par provider pour mettre à jour la progression en temps réel.
             for (int i = 0; i < total; i++)
             {
                 var cat = all[i];
@@ -151,11 +171,13 @@ public sealed class CleaningViewModel : ObservableObject
                 ProgressValue = (double)(i + 1) / total * 100;
             }
 
-            TotalRecoverableBytes = all.Sum(c => c.RecoverableBytes);
+            RecomputeSelectedTotal();
             var itemCount = all.Sum(c => c.ItemCount);
+            var selectedCount = all.Where(c => c.IsSelected).Sum(c => c.ItemCount);
             StatusMessage = itemCount == 0
                 ? "Rien à nettoyer : votre système est déjà propre. 🎉"
-                : $"Analyse terminée : {itemCount} élément(s), {TotalRecoverableDisplay} récupérable(s).";
+                : $"Analyse terminée : {itemCount} élément(s) détecté(s) au total — " +
+                  $"{TotalRecoverableDisplay} récupérable(s) dans les catégories cochées ({selectedCount} élément(s)).";
         }
         catch (OperationCanceledException)
         {

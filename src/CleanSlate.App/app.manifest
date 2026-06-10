@@ -3,18 +3,16 @@
   <assemblyIdentity version="1.0.0.0" name="CleanSlate.App" />
 
   <!--
-    Élévation UAC : on démarre en 'asInvoker' (sans élévation forcée), conformément
-    au principe de moindre privilège. Le nettoyage utilisateur (%TEMP%, caches,
-    miniatures, corbeille) fonctionne SANS administrateur.
-
-    Les cibles qui requièrent l'élévation (Windows\Temp, journaux, Prefetch) sont
-    signalées dans l'UI, qui propose un bouton « Redémarrer en administrateur »
-    (voir ElevationHelper). On évite ainsi d'exiger l'admin pour toute l'app.
+    Élévation UAC : l'application demande les droits administrateur DÈS le démarrage
+    (requireAdministrator). CleanSlate étant un outil système (nettoyage de
+    Windows\Temp, journaux, Prefetch, bloqueur de pub via le fichier hosts, debloat,
+    services), l'admin est nécessaire pour que TOUTES les fonctions marchent sans
+    relance. L'utilisateur voit une seule invite UAC au lancement.
   -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>
-        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

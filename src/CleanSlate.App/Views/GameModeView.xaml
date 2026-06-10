@@ -5,67 +5,214 @@
 
     <Grid Margin="24">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />   <!-- Titre -->
-            <RowDefinition Height="Auto" />   <!-- Notice -->
-            <RowDefinition Height="Auto" />   <!-- Applications -->
-            <RowDefinition Height="Auto" />   <!-- Services -->
-            <RowDefinition Height="Auto" />   <!-- Statut + bouton -->
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Mode Jeu" Style="{StaticResource HeaderText}" />
+        <TextBlock Grid.Row="0" Text="Mode Jeu" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
 
-        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                Padding="16" Margin="0,16,0,0">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
-                <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="700"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
 
-        <!-- Applications suspendues -->
-        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                Padding="16" Margin="0,12,0,0">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="⏸️" FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Applications suspendues (Discord exclu)"
-                               Foreground="{DynamicResource TextBrush}"
-                               FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
-                </StackPanel>
-                <TextBlock Text="{Binding SuspendedAppsList}"
-                           Foreground="{DynamicResource MutedBrush}"
-                           FontSize="12" TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
+            <!-- ========================= Suspension d'applications ========================= -->
+            <TabItem Header="Suspension d'applications">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-        <!-- Services arrêtés -->
-        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                Padding="16" Margin="0,8,0,0">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="🛑" FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Services arrêtés temporairement"
-                               Foreground="{DynamicResource TextBrush}"
-                               FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
-                </StackPanel>
-                <TextBlock Text="{Binding StoppedServicesList}"
-                           Foreground="{DynamicResource MutedBrush}"
-                           FontSize="12" TextWrapping="Wrap" />
-                <TextBlock Text="WSearch (indexation), DiagTrack (télémétrie), SysMain (Superfetch)"
-                           Foreground="{DynamicResource MutedBrush}" FontSize="11" FontStyle="Italic"
-                           Margin="0,4,0,0" />
-            </StackPanel>
-        </Border>
+                    <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="700" />
+                        </StackPanel>
+                    </Border>
 
-        <!-- Statut + bouton -->
-        <StackPanel Grid.Row="4" Margin="0,20,0,0">
-            <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
-                       FontWeight="SemiBold" FontSize="14" />
-            <Button Content="{Binding ToggleLabel}" Style="{StaticResource AccentButton}"
-                    HorizontalAlignment="Left" Margin="0,12,0,0"
-                    Command="{Binding ToggleCommand}" />
-        </StackPanel>
+                    <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                        <TextBlock Text="Applications suspendues lors de l'activation :"
+                                   Style="{StaticResource MutedText}" />
+                        <TextBlock Text="{Binding SuspendedAppsList}" Foreground="{DynamicResource TextBrush}"
+                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Margin="0,20,0,0">
+                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
+                                   FontWeight="SemiBold" FontSize="14" />
+                        <Button Content="{Binding ToggleLabel}" Style="{StaticResource AccentButton}"
+                                HorizontalAlignment="Left" Margin="0,12,0,0"
+                                Command="{Binding ToggleCommand}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================ Overclocking ================================ -->
+            <TabItem Header="Overclocking">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,16,0,0"
+                              DataContext="{Binding Overclocking}">
+                    <StackPanel>
+
+                        <!-- Avertissement honnête -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚠️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                <TextBlock TextWrapping="Wrap" MaxWidth="780" Style="{StaticResource MutedText}">
+                                    CleanSlate détecte votre carte graphique et propose plusieurs profils
+                                    de départ (Sûr, Équilibré, Performance). Sur les cartes NVIDIA dédiées,
+                                    CleanSlate <Bold>applique l'overclock lui-même</Bold> (NVAPI), avec un
+                                    bouton « Reset » pour tout annuler. Pour les autres cartes, le profil
+                                    sélectionné est à appliquer pas à pas dans l'outil officiel
+                                    (AMD Adrenalin, Intel Arc Control / Graphics Command Center) puis à
+                                    tester en stabilité.
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sélection GPU -->
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0" ItemsSource="{Binding Gpus}"
+                                      SelectedItem="{Binding SelectedGpu}"
+                                      DisplayMemberPath="Name" Padding="8,6" />
+                            <Button Grid.Column="1" Content="🔄 Re-détecter" Style="{StaticResource SecondaryButton}"
+                                    Margin="8,0,0,0" Command="{Binding RefreshCommand}" />
+                        </Grid>
+
+                        <!-- Carte détectée -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding GpuName}" Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="Bold" FontSize="16" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding GpuDetails}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                                <TextBlock Text="{Binding AutoApplyNote}" Style="{StaticResource MutedText}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                                <!-- Vérification du dernier pilote chez le fabricant -->
+                                <StackPanel Margin="0,14,0,0" Visibility="{Binding HasGpu, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="🔎 Vérifier le dernier pilote disponible (fabricant)"
+                                            Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                                            Command="{Binding CheckDriverUpdateCommand}" />
+
+                                    <StackPanel Visibility="{Binding HasDriverCheckResult, Converter={StaticResource BoolToVisibility}}"
+                                                Margin="0,10,0,0">
+                                        <TextBlock Text="{Binding DriverCheckMessage}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <UniformGrid Columns="3" Margin="0,8,0,0"
+                                                      Visibility="{Binding DriverUpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="Dernière version" Style="{StaticResource MutedText}" />
+                                                <TextBlock Text="{Binding LatestDriverVersion}" Foreground="{DynamicResource AccentBrush}"
+                                                           FontWeight="Bold" FontSize="16" />
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="Date de sortie" Style="{StaticResource MutedText}" />
+                                                <TextBlock Text="{Binding LatestDriverDate}" Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="Taille" Style="{StaticResource MutedText}" />
+                                                <TextBlock Text="{Binding LatestDriverSize}" Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                            </StackPanel>
+                                        </UniformGrid>
+                                        <Button Content="{Binding OpenLatestDriverLabel}" Style="{StaticResource AccentButton}"
+                                                HorizontalAlignment="Left" Margin="0,10,0,0"
+                                                Command="{Binding OpenLatestDriverCommand}"
+                                                Visibility="{Binding CanOpenLatestDriver, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Profil recommandé -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,12,0,0"
+                                Visibility="{Binding HasProfile, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Profil :" Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding Profiles}"
+                                              SelectedItem="{Binding SelectedProfile}"
+                                              DisplayMemberPath="Name" Padding="8,6"
+                                              HorizontalAlignment="Left" MinWidth="180"
+                                              Visibility="{Binding HasProfiles, Converter={StaticResource BoolToVisibility}}" />
+                                </Grid>
+
+                                <UniformGrid Columns="5">
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Text="Core Clock" Style="{StaticResource MutedText}" />
+                                        <TextBlock Text="{Binding CoreOffsetDisplay}" Foreground="{DynamicResource AccentBrush}"
+                                                   FontWeight="Bold" FontSize="18" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Text="Memory Clock" Style="{StaticResource MutedText}" />
+                                        <TextBlock Text="{Binding MemoryOffsetDisplay}" Foreground="{DynamicResource AccentBrush}"
+                                                   FontWeight="Bold" FontSize="18" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Text="Power Limit" Style="{StaticResource MutedText}" />
+                                        <TextBlock Text="{Binding PowerLimitDisplay}" Foreground="{DynamicResource AccentBrush}"
+                                                   FontWeight="Bold" FontSize="18" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Text="Temp Limit" Style="{StaticResource MutedText}" />
+                                        <TextBlock Text="{Binding TempLimitDisplay}" Foreground="{DynamicResource AccentBrush}"
+                                                   FontWeight="Bold" FontSize="18" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Ventilation" Style="{StaticResource MutedText}" />
+                                        <TextBlock Text="{Binding FanStrategy}" Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="12" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </UniformGrid>
+
+                                <TextBlock Text="{Binding Rationale}" Style="{StaticResource MutedText}"
+                                           Margin="0,14,0,0" />
+
+                                <!-- Étapes -->
+                                <TextBlock Text="Étapes à suivre :" Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" Margin="0,16,0,6" />
+                                <ItemsControl ItemsSource="{Binding Steps}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="•" Margin="0,0,8,0"
+                                                           Foreground="{DynamicResource AccentBrush}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="12" TextWrapping="Wrap" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <WrapPanel Margin="0,16,0,0">
+                                    <Button Content="🚀 Appliquer l'overclock" Style="{StaticResource AccentButton}"
+                                            Command="{Binding ApplyCommand}" Margin="0,0,8,8" />
+                                    <Button Content="↩️ Reset" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding ResetCommand}" Margin="0,0,8,8" />
+                                    <Button Content="📋 Copier le profil" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyProfileCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
+
+                                <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
+                                           FontSize="12" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

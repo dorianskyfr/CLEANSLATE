@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace CleanSlate.Core.Modules;
@@ -21,7 +22,7 @@ public sealed class GitHubUpdateService : IUpdateService
     private const string Owner = "dorianskyfr";
     private const string Repo  = "CLEANSLATE";
 
-    public string CurrentVersion => "0.2.7";
+    public string CurrentVersion => "0.9.3";
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct)
     {
@@ -75,10 +76,57 @@ public sealed class GitHubUpdateService : IUpdateService
         return dest;
     }
 
+    /// <summary>
+    /// Lance la mise à jour téléchargée. Pour que la mise à jour « reste » (le
+    /// raccourci/épingle continue de pointer vers une version à jour), on remplace
+    /// l'exécutable actuel par le nouveau via un script qui attend la fermeture du
+    /// processus courant, déplace le nouvel exécutable à la place de l'ancien, puis
+    /// relance l'application depuis cet emplacement.
+    /// </summary>
     public void LaunchInstaller(string exePath)
     {
         if (!File.Exists(exePath)) return;
-        Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+
+        var currentExe = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(currentExe) || !currentExe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            // Repli : on ne sait pas où se trouve l'exécutable actuel, on lance simplement le nouveau.
+            Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+            return;
+        }
+
+        var pid = Environment.ProcessId;
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"cleanslate_update_{pid}.bat");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("@echo off");
+        sb.AppendLine("setlocal");
+        sb.AppendLine($"set PID={pid}");
+        sb.AppendLine("set COUNT=0");
+        sb.AppendLine(":wait");
+        sb.AppendLine("set /a COUNT+=1");
+        sb.AppendLine("if %COUNT% gtr 30 goto forcekill");
+        sb.AppendLine($"tasklist /fi \"PID eq %PID%\" 2>nul | find \"%PID%\" >nul");
+        sb.AppendLine("if not errorlevel 1 (");
+        sb.AppendLine("  timeout /t 1 /nobreak >nul");
+        sb.AppendLine("  goto wait");
+        sb.AppendLine(")");
+        sb.AppendLine("goto move");
+        sb.AppendLine(":forcekill");
+        sb.AppendLine("taskkill /f /pid %PID% >nul 2>nul");
+        sb.AppendLine(":move");
+        sb.AppendLine($"move /y \"{exePath}\" \"{currentExe}\" >nul");
+        sb.AppendLine($"start \"\" \"{currentExe}\"");
+        sb.AppendLine("del \"%~f0\"");
+
+        File.WriteAllText(scriptPath, sb.ToString(), Encoding.ASCII);
+
+        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            WindowStyle = ProcessWindowStyle.Hidden,
+        });
     }
 
     private static bool IsVersionNewer(string current, string remote)
