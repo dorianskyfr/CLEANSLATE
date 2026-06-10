@@ -50,6 +50,7 @@ public partial class App : Application
         IGameMode gameMode                 = new GameModeService(logger);
         IOverclockingAdvisor overclocking  = new OverclockingAdvisor();
         IGpuOverclocker gpuOverclocker     = new GpuOverclocker();
+        IGpuDriverChecker driverChecker    = new GpuDriverChecker();
         IStartupManager startupManager     = new StartupManager(logger);
         IRegistryCleaner registryCleaner   = new RegistryCleaner(logger);
         IBackupService backupService       = new RegistryBackupService(logger);
@@ -63,7 +64,7 @@ public partial class App : Application
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
         var memoryVm       = new MemoryViewModel(memoryMonitor, dialogs);
         var driversVm      = new DriversViewModel(dialogs);
-        var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, dialogs);
+        var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dialogs);
         var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, debloater, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);
         var adBlockVm      = new AdBlockViewModel(adBlockSvc, dialogs);

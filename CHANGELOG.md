@@ -1,3 +1,10 @@
+## v0.9.2
+
+### Nouveautés
+- 🔎 **Pilotes GPU à jour** : dans l'onglet Overclocking, le bouton « Vérifier le dernier pilote disponible » interroge **directement le fabricant** (NVIDIA via son catalogue officiel pour les cartes GeForce/RTX/GTX) pour comparer votre version installée à la toute dernière disponible — au-delà du catalogue Windows Update, souvent en retard de plusieurs semaines/mois sur les pilotes « Game Ready ». Affiche la version, la date de sortie, la taille, et propose le téléchargement direct. Pour AMD et Intel (pas d'API par modèle, pilotes unifiés par génération), un lien direct vers l'outil de détection officiel du fabricant est proposé.
+
+---
+
 ## v0.9.1
 
 ### Nouveautés

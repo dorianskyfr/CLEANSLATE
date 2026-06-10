@@ -17,35 +17,43 @@ public sealed class OverclockingViewModel : ObservableObject
 {
     private readonly IOverclockingAdvisor _advisor;
     private readonly IGpuOverclocker _overclocker;
+    private readonly IGpuDriverChecker _driverChecker;
     private readonly IDialogService _dialogs;
 
     private GpuInfo? _selectedGpu;
     private OverclockProfile? _profile;
     private string _status = string.Empty;
     private bool _isBusy;
+    private bool _isCheckingDriver;
+    private GpuDriverCheckResult? _driverCheck;
 
-    public OverclockingViewModel(IOverclockingAdvisor advisor, IGpuOverclocker overclocker, IDialogService dialogs)
+    public OverclockingViewModel(IOverclockingAdvisor advisor, IGpuOverclocker overclocker, IGpuDriverChecker driverChecker, IDialogService dialogs)
     {
         _advisor = advisor;
         _overclocker = overclocker;
+        _driverChecker = driverChecker;
         _dialogs = dialogs;
 
-        RefreshCommand          = new RelayCommand(DetectGpus, () => !IsBusy);
-        CopyProfileCommand      = new RelayCommand(CopyProfile, () => Profile is { Recommended: true });
-        OpenAfterburnerCommand  = new RelayCommand(() => Open("https://www.msi.com/Landing/afterburner/graphics-cards"));
-        ApplyCommand            = new AsyncRelayCommand(ApplyAsync, () => Recommended && CanAutoApply && !IsBusy);
-        ResetCommand            = new AsyncRelayCommand(ResetAsync, () => CanAutoApply && !IsBusy);
+        RefreshCommand           = new RelayCommand(DetectGpus, () => !IsBusy);
+        CopyProfileCommand       = new RelayCommand(CopyProfile, () => Profile is { Recommended: true });
+        OpenAfterburnerCommand   = new RelayCommand(() => Open("https://www.msi.com/Landing/afterburner/graphics-cards"));
+        ApplyCommand             = new AsyncRelayCommand(ApplyAsync, () => Recommended && CanAutoApply && !IsBusy);
+        ResetCommand             = new AsyncRelayCommand(ResetAsync, () => CanAutoApply && !IsBusy);
+        CheckDriverUpdateCommand = new AsyncRelayCommand(CheckDriverUpdateAsync, () => SelectedGpu is not null && !IsCheckingDriver);
+        OpenLatestDriverCommand  = new RelayCommand(() => Open(_driverCheck!.DownloadUrl!), () => !string.IsNullOrEmpty(_driverCheck?.DownloadUrl));
 
         DetectGpus();
     }
 
     public ObservableCollection<GpuInfo> Gpus { get; } = new();
 
-    public RelayCommand RefreshCommand         { get; }
-    public RelayCommand CopyProfileCommand     { get; }
-    public RelayCommand OpenAfterburnerCommand { get; }
-    public AsyncRelayCommand ApplyCommand      { get; }
-    public AsyncRelayCommand ResetCommand      { get; }
+    public RelayCommand RefreshCommand            { get; }
+    public RelayCommand CopyProfileCommand        { get; }
+    public RelayCommand OpenAfterburnerCommand    { get; }
+    public AsyncRelayCommand ApplyCommand         { get; }
+    public AsyncRelayCommand ResetCommand         { get; }
+    public AsyncRelayCommand CheckDriverUpdateCommand { get; }
+    public RelayCommand OpenLatestDriverCommand   { get; }
 
     public bool IsBusy
     {
@@ -60,6 +68,27 @@ public sealed class OverclockingViewModel : ObservableObject
             }
         }
     }
+
+    public bool IsCheckingDriver
+    {
+        get => _isCheckingDriver;
+        private set
+        {
+            if (SetProperty(ref _isCheckingDriver, value))
+                CheckDriverUpdateCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool HasDriverCheckResult => _driverCheck is not null;
+    public string DriverCheckMessage => _driverCheck?.Message ?? string.Empty;
+    public bool DriverUpdateAvailable => _driverCheck?.UpdateAvailable ?? false;
+    public string LatestDriverVersion => _driverCheck?.LatestVersion ?? "—";
+    public string LatestDriverDate    => _driverCheck?.LatestReleaseDate ?? "—";
+    public string LatestDriverSize    => _driverCheck?.DownloadSizeDisplay ?? "—";
+    public bool CanOpenLatestDriver   => !string.IsNullOrEmpty(_driverCheck?.DownloadUrl);
+    public string OpenLatestDriverLabel => DriverUpdateAvailable
+        ? "⬇️ Télécharger le pilote NVIDIA"
+        : "🌐 Ouvrir la page des pilotes";
 
     /// <summary>Vrai si l'application automatique de l'overclock est possible (NVIDIA dédiée).</summary>
     public bool CanAutoApply => SelectedGpu is not null && _overclocker.CanApply(SelectedGpu);
@@ -85,6 +114,8 @@ public sealed class OverclockingViewModel : ObservableObject
                 OnPropertyChanged(nameof(AutoApplyNote));
                 ApplyCommand.RaiseCanExecuteChanged();
                 ResetCommand.RaiseCanExecuteChanged();
+                ClearDriverCheck();
+                CheckDriverUpdateCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -205,6 +236,50 @@ public sealed class OverclockingViewModel : ObservableObject
             _dialogs.Warn("Reset", ex.Message);
         }
         finally { IsBusy = false; }
+    }
+
+    private async Task CheckDriverUpdateAsync()
+    {
+        if (SelectedGpu is null) return;
+        IsCheckingDriver = true;
+        ClearDriverCheck();
+        Status = "Recherche du dernier pilote auprès du fabricant…";
+        try
+        {
+            var gpu = SelectedGpu;
+            _driverCheck = await _driverChecker.CheckLatestAsync(gpu, CancellationToken.None);
+            Status = _driverCheck.Message;
+        }
+        catch (Exception ex)
+        {
+            _driverCheck = null;
+            Status = $"Erreur : {ex.Message}";
+            _dialogs.Warn("Vérification du pilote", ex.Message);
+        }
+        finally
+        {
+            IsCheckingDriver = false;
+            RaiseDriverCheckChanged();
+        }
+    }
+
+    private void ClearDriverCheck()
+    {
+        _driverCheck = null;
+        RaiseDriverCheckChanged();
+    }
+
+    private void RaiseDriverCheckChanged()
+    {
+        OnPropertyChanged(nameof(HasDriverCheckResult));
+        OnPropertyChanged(nameof(DriverCheckMessage));
+        OnPropertyChanged(nameof(DriverUpdateAvailable));
+        OnPropertyChanged(nameof(LatestDriverVersion));
+        OnPropertyChanged(nameof(LatestDriverDate));
+        OnPropertyChanged(nameof(LatestDriverSize));
+        OnPropertyChanged(nameof(CanOpenLatestDriver));
+        OnPropertyChanged(nameof(OpenLatestDriverLabel));
+        OpenLatestDriverCommand.RaiseCanExecuteChanged();
     }
 
     private void CopyProfile()

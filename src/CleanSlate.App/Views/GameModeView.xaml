@@ -88,6 +88,39 @@
                                 <TextBlock Text="{Binding GpuDetails}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
                                 <TextBlock Text="{Binding AutoApplyNote}" Style="{StaticResource MutedText}"
                                            Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                                <!-- Vérification du dernier pilote chez le fabricant -->
+                                <StackPanel Margin="0,14,0,0" Visibility="{Binding HasGpu, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="🔎 Vérifier le dernier pilote disponible (fabricant)"
+                                            Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                                            Command="{Binding CheckDriverUpdateCommand}" />
+
+                                    <StackPanel Visibility="{Binding HasDriverCheckResult, Converter={StaticResource BoolToVisibility}}"
+                                                Margin="0,10,0,0">
+                                        <TextBlock Text="{Binding DriverCheckMessage}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <UniformGrid Columns="3" Margin="0,8,0,0"
+                                                      Visibility="{Binding DriverUpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="Dernière version" Style="{StaticResource MutedText}" />
+                                                <TextBlock Text="{Binding LatestDriverVersion}" Foreground="{DynamicResource AccentBrush}"
+                                                           FontWeight="Bold" FontSize="16" />
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="Date de sortie" Style="{StaticResource MutedText}" />
+                                                <TextBlock Text="{Binding LatestDriverDate}" Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="Taille" Style="{StaticResource MutedText}" />
+                                                <TextBlock Text="{Binding LatestDriverSize}" Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                            </StackPanel>
+                                        </UniformGrid>
+                                        <Button Content="{Binding OpenLatestDriverLabel}" Style="{StaticResource AccentButton}"
+                                                HorizontalAlignment="Left" Margin="0,10,0,0"
+                                                Command="{Binding OpenLatestDriverCommand}"
+                                                Visibility="{Binding CanOpenLatestDriver, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

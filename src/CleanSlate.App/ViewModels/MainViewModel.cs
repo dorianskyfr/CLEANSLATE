@@ -9,6 +9,15 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v0.9.2 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Overclocking : nouveau bouton « Vérifier le dernier pilote disponible »\n" +
+        "  qui interroge directement NVIDIA (catalogue officiel) pour comparer votre\n" +
+        "  pilote installé à la toute dernière version (au-delà de Windows Update,\n" +
+        "  souvent en retard) — version, date, taille et téléchargement direct.\n" +
+        "  Pour AMD/Intel : lien direct vers l'outil de détection officiel.\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.9.1 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Overclocking : application AUTOMATIQUE de l'overclock pour les cartes\n" +
