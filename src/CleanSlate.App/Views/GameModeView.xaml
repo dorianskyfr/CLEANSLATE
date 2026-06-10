@@ -59,12 +59,12 @@
                                 <TextBlock Text="⚠️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
                                 <TextBlock TextWrapping="Wrap" MaxWidth="780" Style="{StaticResource MutedText}">
                                     CleanSlate détecte votre carte graphique et propose plusieurs profils
-                                    de départ (Sûr, Équilibré, Performance). Sur les cartes NVIDIA dédiées,
-                                    CleanSlate <Bold>applique l'overclock lui-même</Bold> (NVAPI), avec un
-                                    bouton « Reset » pour tout annuler. Pour les autres cartes, le profil
-                                    sélectionné est à appliquer pas à pas dans l'outil officiel
-                                    (AMD Adrenalin, Intel Arc Control / Graphics Command Center) puis à
-                                    tester en stabilité.
+                                    de départ (Sûr, Équilibré, Performance). Sur les cartes NVIDIA et AMD
+                                    dédiées, CleanSlate <Bold>applique l'overclock lui-même</Bold> (NVAPI /
+                                    ADL OverdriveN), avec un bouton « Reset » pour tout annuler. Pour les
+                                    autres cartes (Intel notamment), le profil sélectionné est à appliquer
+                                    pas à pas dans l'outil officiel (Intel Arc Control / Graphics Command
+                                    Center) puis à tester en stabilité.
                                 </TextBlock>
                             </StackPanel>
                         </Border>

@@ -1,3 +1,11 @@
+## v0.9.4
+
+### Nouveautés
+- 🎮 **Overclocking automatique (AMD)** : sur les cartes Radeon dédiées (Polaris, Vega, RDNA/RDNA2 et au-delà), l'onglet Overclocking applique désormais l'overclock **directement**, comme pour NVIDIA — fréquences cœur/mémoire et limite de puissance posées via **AMD ADL (OverdriveN)**, avec les boutons « Appliquer l'overclock » et « Reset » (retour aux valeurs d'usine). Si OverdriveN n'est pas pris en charge par le pilote/la carte, l'application échoue proprement et le profil guidé reste disponible. Intel reste en profil guidé (pas d'API constructeur fiable disponible).
+- 🔔 **Notification de mise à jour persistante** : si une mise à jour est détectée mais pas installée tout de suite, la notification « Mise à jour vX.Y.Z disponible » reste affichée — y compris après avoir fermé puis relancé CleanSlate — jusqu'à ce que la mise à jour soit installée.
+
+---
+
 ## v0.9.3
 
 ### Nouveautés
