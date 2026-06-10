@@ -1,3 +1,12 @@
+## v1.0.0
+
+### Nouveautés
+- 🏠 **Onglet « Accueil »** : CleanSlate s'ouvre désormais sur un tableau de bord — vue d'ensemble du système (édition de Windows, processeur, carte(s) graphique(s), RAM installée, disques avec espace libre, durée d'allumage) et bouton **« Entretien en 1 clic »** qui enchaîne le nettoyage des seules catégories **sûres** (fichiers temporaires, miniatures…) et l'optimisation de la RAM, avec un bilan détaillé. La corbeille, le cache des navigateurs et les actions sensibles ne sont jamais touchés par l'entretien automatique : ils restent un choix explicite dans l'onglet Nettoyage.
+- 🎯 **Mode Jeu → « DLSS Enabler »** : nouveau sous-onglet qui gère le mod open-source [DLSS Enabler](https://github.com/artur-graniszewski/DLSS-Enabler) (aussi distribué sur [Nexus Mods](https://www.nexusmods.com/site/mods/757)) à la manière de DLSS Enabler Manager : détection automatique des jeux installés (bibliothèques **Steam** et **Epic Games**, ou dossier choisi à la main), détection de la présence du mod, **installation en un clic** (téléchargement de l'installateur officiel depuis GitHub puis installation silencieuse dans le dossier du jeu) et **désinstallation propre** (les DLL d'autres mods comme ReShade sont préservées — vérification des métadonnées avant toute suppression). Le mod simule DLSS Super Resolution et Frame Generation sur n'importe quel GPU DirectX 12 dans les jeux compatibles DLSS2/DLSS3. ⚠️ Réservé aux jeux **solo** : ne l'utilisez jamais dans un jeu multijoueur protégé par un anticheat.
+- 💾 **Préférences mémorisées** : le thème (sombre/clair) et la taille/l'état de la fenêtre sont désormais conservés d'une session à l'autre.
+
+---
+
 ## v0.9.4
 
 ### Nouveautés

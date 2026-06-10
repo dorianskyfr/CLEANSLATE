@@ -18,18 +18,23 @@ public sealed class GameModeViewModel : ObservableObject
         IOverclockingAdvisor overclockingAdvisor,
         IGpuOverclocker overclocker,
         IGpuDriverChecker driverChecker,
+        IDlssEnablerService dlssEnabler,
         IDialogService dialogs)
     {
         _gameMode = gameMode;
         _dialogs = dialogs;
         ToggleCommand = new AsyncRelayCommand(ToggleAsync);
         Overclocking = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
+        DlssEnabler = new DlssEnablerViewModel(dlssEnabler, dialogs);
     }
 
     public AsyncRelayCommand ToggleCommand { get; }
 
     /// <summary>Sous-catégorie « Overclocking » (détection GPU + profil recommandé).</summary>
     public OverclockingViewModel Overclocking { get; }
+
+    /// <summary>Sous-catégorie « DLSS Enabler » (gestionnaire du mod, par jeu).</summary>
+    public DlssEnablerViewModel DlssEnabler { get; }
 
     public bool IsActive => _gameMode.IsActive;
     public string ToggleLabel => IsActive ? "Désactiver le Mode Jeu" : "Activer le Mode Jeu";

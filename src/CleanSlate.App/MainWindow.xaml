@@ -10,6 +10,9 @@
         Background="{DynamicResource BackgroundBrush}">
 
     <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+            <views:DashboardView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:CleaningViewModel}">
             <views:CleaningView />
         </DataTemplate>

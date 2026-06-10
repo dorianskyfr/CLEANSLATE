@@ -11,4 +11,7 @@ public interface IDialogService
 
     void Info(string title, string message);
     void Warn(string title, string message);
+
+    /// <summary>Ouvre un sélecteur de dossier. Renvoie null si l'utilisateur annule.</summary>
+    string? PickFolder(string title);
 }
