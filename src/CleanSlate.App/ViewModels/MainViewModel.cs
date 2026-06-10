@@ -16,8 +16,9 @@ public sealed class MainViewModel : ObservableObject
         "  catégories sûres + optimisation RAM, avec bilan détaillé.\n" +
         "• Mode Jeu : nouveau sous-onglet « DLSS Enabler » — détecte vos jeux\n" +
         "  (Steam, Epic Games ou dossier manuel) et installe/désinstalle le mod\n" +
-        "  open-source DLSS Enabler (Super Resolution + Frame Generation sur\n" +
-        "  tout GPU DirectX 12) directement dans le dossier du jeu, comme\n" +
+        "  open-source DLSS Enabler (Super Resolution + Frame Generation, y\n" +
+        "  compris Multi Frame Generation x2/x3/x4, sur tout GPU DirectX 12)\n" +
+        "  directement dans le dossier du jeu, comme\n" +
         "  DLSS Enabler Manager. Réservé aux jeux solo (anticheat).\n" +
         "• Vos préférences sont enfin mémorisées : thème sombre/clair et taille\n" +
         "  de fenêtre sont conservés d'une session à l'autre.\n\n" +

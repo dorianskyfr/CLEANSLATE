@@ -31,8 +31,9 @@ public sealed record DlssEnablerRelease(
 /// <summary>
 /// Gestion du mod « DLSS Enabler » (artur-graniszewski — github.com/artur-graniszewski/DLSS-Enabler,
 /// aussi distribué sur Nexus Mods, site/mods/757). Le mod simule DLSS Super Resolution et
-/// DLSS Frame Generation sur n'importe quel GPU DirectX 12, dans les jeux qui prennent
-/// en charge DLSS2/DLSS3 nativement.
+/// DLSS Frame Generation — y compris le Multi Frame Generation (x2/x3/x4, façon DLSS 4) —
+/// sur n'importe quel GPU DirectX 12, dans les jeux qui prennent en charge DLSS2/DLSS3
+/// nativement.
 ///
 /// CleanSlate joue ici le rôle d'un gestionnaire (comme « DLSS Enabler Manager ») :
 ///  - détection des jeux installés (bibliothèques Steam et Epic Games + dossier manuel) ;

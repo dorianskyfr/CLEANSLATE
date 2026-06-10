@@ -84,8 +84,9 @@ public sealed class DlssEnablerViewModel : ObservableObject
 
     public string HonestNotice =>
         "DLSS Enabler est un mod open-source (artur-graniszewski) qui simule DLSS " +
-        "Super Resolution et Frame Generation sur n'importe quel GPU DirectX 12, dans " +
-        "les jeux qui prennent en charge DLSS2/DLSS3 nativement. CleanSlate télécharge " +
+        "Super Resolution et Frame Generation — y compris le Multi Frame Generation " +
+        "(x2/x3/x4, façon DLSS 4) — sur n'importe quel GPU DirectX 12, dans les jeux " +
+        "qui prennent en charge DLSS2/DLSS3 nativement. CleanSlate télécharge " +
         "l'installateur OFFICIEL depuis GitHub et le pose dans le dossier du jeu choisi " +
         "(quelques DLL), avec désinstallation propre en un clic. ⚠️ N'utilisez JAMAIS " +
         "ce mod dans un jeu multijoueur protégé par un anticheat : l'injection de DLL " +
