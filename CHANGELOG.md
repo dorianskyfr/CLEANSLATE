@@ -1,3 +1,10 @@
+## v0.9.1
+
+### Nouveautés
+- 🚀 **Overclocking automatique** (NVIDIA) : l'onglet Overclocking applique désormais l'overclock **directement** sur les cartes NVIDIA dédiées — offsets de fréquence cœur et mémoire posés via NVAPI (l'API officielle NVIDIA), avec un bouton **« Appliquer l'overclock »** et un bouton **« Reset »** qui remet tout à zéro. Les offsets ne survivent pas à un redémarrage (sécurité). Les cartes AMD/Intel conservent le profil guidé à appliquer manuellement (ADL/IGCL non encore implémentés). Fonctionnalité expérimentale : NVAPI valide chaque structure, donc une incompatibilité échoue proprement sans rien modifier.
+
+---
+
 ## v0.9
 
 ### Nouveautés

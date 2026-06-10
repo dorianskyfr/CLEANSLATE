@@ -9,6 +9,13 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v0.9.1 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Overclocking : application AUTOMATIQUE de l'overclock pour les cartes\n" +
+        "  NVIDIA (offsets cœur/mémoire via NVAPI) — bouton « Appliquer » + « Reset »\n" +
+        "  Les cartes AMD/Intel gardent le profil guidé à appliquer à la main.\n\n" +
+
+        "─────────────────────────────\n" +
         "v0.9 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Nouveau logo CleanSlate comme icône de l'application\n" +

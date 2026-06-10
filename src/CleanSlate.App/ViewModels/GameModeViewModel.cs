@@ -13,12 +13,16 @@ public sealed class GameModeViewModel : ObservableObject
     private readonly IDialogService _dialogs;
     private string _status = "Mode Jeu inactif.";
 
-    public GameModeViewModel(IGameMode gameMode, IOverclockingAdvisor overclockingAdvisor, IDialogService dialogs)
+    public GameModeViewModel(
+        IGameMode gameMode,
+        IOverclockingAdvisor overclockingAdvisor,
+        IGpuOverclocker overclocker,
+        IDialogService dialogs)
     {
         _gameMode = gameMode;
         _dialogs = dialogs;
         ToggleCommand = new AsyncRelayCommand(ToggleAsync);
-        Overclocking = new OverclockingViewModel(overclockingAdvisor, dialogs);
+        Overclocking = new OverclockingViewModel(overclockingAdvisor, overclocker, dialogs);
     }
 
     public AsyncRelayCommand ToggleCommand { get; }

@@ -86,6 +86,8 @@
                                 <TextBlock Text="{Binding GpuName}" Foreground="{DynamicResource TextBrush}"
                                            FontWeight="Bold" FontSize="16" TextWrapping="Wrap" />
                                 <TextBlock Text="{Binding GpuDetails}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                                <TextBlock Text="{Binding AutoApplyNote}" Style="{StaticResource MutedText}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
 
@@ -148,12 +150,16 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                    <Button Content="📋 Copier le profil" Style="{StaticResource AccentButton}"
-                                            Command="{Binding CopyProfileCommand}" />
-                                    <Button Content="⬇️ Télécharger MSI Afterburner" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding OpenAfterburnerCommand}" />
-                                </StackPanel>
+                                <WrapPanel Margin="0,16,0,0">
+                                    <Button Content="🚀 Appliquer l'overclock" Style="{StaticResource AccentButton}"
+                                            Command="{Binding ApplyCommand}" Margin="0,0,8,8" />
+                                    <Button Content="↩️ Reset" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding ResetCommand}" Margin="0,0,8,8" />
+                                    <Button Content="📋 Copier le profil" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyProfileCommand}" Margin="0,0,8,8" />
+                                    <Button Content="⬇️ MSI Afterburner" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding OpenAfterburnerCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
 
                                 <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
                                            FontSize="12" Margin="0,10,0,0" />

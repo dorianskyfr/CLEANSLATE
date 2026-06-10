@@ -9,27 +9,32 @@ namespace CleanSlate.App.ViewModels;
 
 /// <summary>
 /// Sous-catégorie « Overclocking » du Mode Jeu. Détecte la carte graphique et
-/// propose un profil de départ équilibré (performance vs stabilité), à appliquer
-/// dans l'outil officiel du constructeur. On n'applique jamais l'overclock
-/// directement (voir IOverclockingAdvisor pour l'explication honnête).
+/// propose un profil équilibré (performance vs stabilité). Sur les cartes NVIDIA
+/// dédiées, l'overclock peut être appliqué automatiquement (NVAPI) avec un Reset ;
+/// sur les autres cartes, le profil est guidé pas à pas dans l'outil du constructeur.
 /// </summary>
 public sealed class OverclockingViewModel : ObservableObject
 {
     private readonly IOverclockingAdvisor _advisor;
+    private readonly IGpuOverclocker _overclocker;
     private readonly IDialogService _dialogs;
 
     private GpuInfo? _selectedGpu;
     private OverclockProfile? _profile;
     private string _status = string.Empty;
+    private bool _isBusy;
 
-    public OverclockingViewModel(IOverclockingAdvisor advisor, IDialogService dialogs)
+    public OverclockingViewModel(IOverclockingAdvisor advisor, IGpuOverclocker overclocker, IDialogService dialogs)
     {
         _advisor = advisor;
+        _overclocker = overclocker;
         _dialogs = dialogs;
 
-        RefreshCommand          = new RelayCommand(DetectGpus);
+        RefreshCommand          = new RelayCommand(DetectGpus, () => !IsBusy);
         CopyProfileCommand      = new RelayCommand(CopyProfile, () => Profile is { Recommended: true });
         OpenAfterburnerCommand  = new RelayCommand(() => Open("https://www.msi.com/Landing/afterburner/graphics-cards"));
+        ApplyCommand            = new AsyncRelayCommand(ApplyAsync, () => Recommended && CanAutoApply && !IsBusy);
+        ResetCommand            = new AsyncRelayCommand(ResetAsync, () => CanAutoApply && !IsBusy);
 
         DetectGpus();
     }
@@ -39,6 +44,31 @@ public sealed class OverclockingViewModel : ObservableObject
     public RelayCommand RefreshCommand         { get; }
     public RelayCommand CopyProfileCommand     { get; }
     public RelayCommand OpenAfterburnerCommand { get; }
+    public AsyncRelayCommand ApplyCommand      { get; }
+    public AsyncRelayCommand ResetCommand      { get; }
+
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (SetProperty(ref _isBusy, value))
+            {
+                RefreshCommand.RaiseCanExecuteChanged();
+                ApplyCommand.RaiseCanExecuteChanged();
+                ResetCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>Vrai si l'application automatique de l'overclock est possible (NVIDIA dédiée).</summary>
+    public bool CanAutoApply => SelectedGpu is not null && _overclocker.CanApply(SelectedGpu);
+
+    public string AutoApplyNote => CanAutoApply
+        ? "✅ Carte compatible : l'overclock peut être appliqué automatiquement (bouton « Appliquer l'overclock »). " +
+          "Un bouton « Reset » remet tout à zéro à tout moment."
+        : "ℹ️ Application automatique non disponible pour cette carte — suivez les étapes guidées ci-dessous " +
+          "dans l'outil du constructeur (le profil reste optimal).";
 
     public GpuInfo? SelectedGpu
     {
@@ -51,6 +81,10 @@ public sealed class OverclockingViewModel : ObservableObject
                 OnPropertyChanged(nameof(GpuName));
                 OnPropertyChanged(nameof(GpuDetails));
                 OnPropertyChanged(nameof(HasGpu));
+                OnPropertyChanged(nameof(CanAutoApply));
+                OnPropertyChanged(nameof(AutoApplyNote));
+                ApplyCommand.RaiseCanExecuteChanged();
+                ResetCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -74,6 +108,7 @@ public sealed class OverclockingViewModel : ObservableObject
                 if (value is not null)
                     foreach (var s in value.Steps) Steps.Add(s);
                 CopyProfileCommand.RaiseCanExecuteChanged();
+                ApplyCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -113,6 +148,63 @@ public sealed class OverclockingViewModel : ObservableObject
         Status = Gpus.Count == 0
             ? "Aucune carte graphique détectée."
             : $"{Gpus.Count} carte(s) graphique(s) détectée(s).";
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (SelectedGpu is null || Profile is null) return;
+
+        var confirmed = _dialogs.Confirm(
+            "Appliquer l'overclock",
+            $"CleanSlate va appliquer l'overclock à votre {SelectedGpu.Name} :\n\n" +
+            $"  • Fréquence cœur : +{Profile.CoreOffsetMhz} MHz\n" +
+            $"  • Fréquence mémoire : +{Profile.MemoryOffsetMhz} MHz\n\n" +
+            "⚠️ EXPÉRIMENTAL. En cas d'instabilité (artefacts, écran noir, crash), cliquez sur " +
+            "« Reset » pour tout annuler — les offsets ne survivent pas à un redémarrage. " +
+            "Lancez ensuite un test de stabilité.\n\nContinuer ?");
+        if (!confirmed) return;
+
+        IsBusy = true;
+        Status = "Application de l'overclock…";
+        try
+        {
+            var gpu = SelectedGpu;
+            var profile = Profile;
+            var result = await Task.Run(() => _overclocker.Apply(gpu, profile));
+            Status = result.Message;
+            if (result.Success)
+                _dialogs.Info("Overclock appliqué",
+                    result.Message + "\n\nLancez maintenant un test de stabilité (benchmark ou jeu exigeant) " +
+                    "20-30 min. En cas de souci, cliquez sur « Reset ».");
+            else
+                _dialogs.Warn("Overclock non appliqué", result.Message);
+        }
+        catch (Exception ex)
+        {
+            Status = $"Erreur : {ex.Message}";
+            _dialogs.Warn("Overclock", ex.Message);
+        }
+        finally { IsBusy = false; }
+    }
+
+    private async Task ResetAsync()
+    {
+        if (SelectedGpu is null) return;
+        IsBusy = true;
+        Status = "Réinitialisation des offsets…";
+        try
+        {
+            var gpu = SelectedGpu;
+            var result = await Task.Run(() => _overclocker.Reset(gpu));
+            Status = result.Message;
+            if (!result.Success) _dialogs.Warn("Reset", result.Message);
+        }
+        catch (Exception ex)
+        {
+            Status = $"Erreur : {ex.Message}";
+            _dialogs.Warn("Reset", ex.Message);
+        }
+        finally { IsBusy = false; }
     }
 
     private void CopyProfile()
