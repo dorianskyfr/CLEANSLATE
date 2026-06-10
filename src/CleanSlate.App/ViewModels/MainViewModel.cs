@@ -23,11 +23,7 @@ public sealed class MainViewModel : ObservableObject
         "• Overclocking : les écrans virtuels (Parsec, spacedesk, IDD…) ne\n" +
         "  s'affichent plus comme cartes graphiques\n" +
         "• Overclocking : bouton « MSI Afterburner » retiré (CleanSlate applique\n" +
-        "  lui-même l'overclock sur les cartes NVIDIA compatibles)\n\n" +
-
-        "─────────────────────────────\n" +
-        "v0.9.2 (2026-06)\n" +
-        "─────────────────────────────\n" +
+        "  lui-même l'overclock sur les cartes NVIDIA compatibles)\n" +
         "• Overclocking : nouveau bouton « Vérifier le dernier pilote disponible »\n" +
         "  qui interroge directement NVIDIA (catalogue officiel) pour comparer votre\n" +
         "  pilote installé à la toute dernière version (au-delà de Windows Update,\n" +

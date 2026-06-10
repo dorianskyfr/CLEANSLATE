@@ -1,5 +1,8 @@
 ## v0.9.3
 
+### Nouveautés
+- 🔎 **Pilotes GPU à jour** : dans l'onglet Overclocking, le bouton « Vérifier le dernier pilote disponible » interroge **directement le fabricant** (NVIDIA via son catalogue officiel pour les cartes GeForce/RTX/GTX) pour comparer votre version installée à la toute dernière disponible — au-delà du catalogue Windows Update, souvent en retard de plusieurs semaines/mois sur les pilotes « Game Ready ». Affiche la version, la date de sortie, la taille, et propose le téléchargement direct. Pour AMD et Intel (pas d'API par modèle, pilotes unifiés par génération), un lien direct vers l'outil de détection officiel du fabricant est proposé.
+
 ### Correctifs
 - 🛡️ **Bloqueur de pub remplacé (DNS)** : l'ancien bloqueur basé sur le fichier hosts (~130 000 entrées) ralentissait fortement le PC et ne pouvait être désactivé qu'en Mode sans échec. Il est **entièrement remplacé** par une bascule du DNS système vers **AdGuard DNS** (`94.140.14.14` / `94.140.15.15`) : aussi efficace, instantané, sans impact sur les performances, et désactivable en un clic (le DNS d'origine est sauvegardé puis restauré). Au démarrage, CleanSlate nettoie automatiquement l'ancien blocage hosts s'il est encore présent.
 - 🔄 **Mises à jour persistantes** : après une mise à jour, CleanSlate remplace désormais l'exécutable existant par la nouvelle version (au lieu de lancer une copie temporaire), puis relance l'application depuis cet emplacement. Le raccourci/épingle reste donc à jour.
@@ -9,13 +12,6 @@
 - 🎮 **Overclocking : Intel Iris Xe / Arc Graphics reconnus** : les iGPU Intel récents (Iris Xe, Arc Graphics intégré) reçoivent désormais de vrais profils « GPU Performance Boost » au lieu du message générique « aucun overclock recommandé » réservé aux anciens UHD/HD Graphics.
 - 🎮 **Overclocking : écrans virtuels filtrés** : les adaptateurs d'affichage virtuels (ex. Parsec Virtual Display, spacedesk, IDD) n'apparaissent plus dans la liste des cartes graphiques.
 - 🎮 **Overclocking : bouton MSI Afterburner retiré** — CleanSlate applique lui-même l'overclock sur les cartes NVIDIA compatibles (NVAPI).
-
----
-
-## v0.9.2
-
-### Nouveautés
-- 🔎 **Pilotes GPU à jour** : dans l'onglet Overclocking, le bouton « Vérifier le dernier pilote disponible » interroge **directement le fabricant** (NVIDIA via son catalogue officiel pour les cartes GeForce/RTX/GTX) pour comparer votre version installée à la toute dernière disponible — au-delà du catalogue Windows Update, souvent en retard de plusieurs semaines/mois sur les pilotes « Game Ready ». Affiche la version, la date de sortie, la taille, et propose le téléchargement direct. Pour AMD et Intel (pas d'API par modèle, pilotes unifiés par génération), un lien direct vers l'outil de détection officiel du fabricant est proposé.
 
 ---
 
