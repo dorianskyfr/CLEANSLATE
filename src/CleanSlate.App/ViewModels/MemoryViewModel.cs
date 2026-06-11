@@ -9,7 +9,6 @@ namespace CleanSlate.App.ViewModels;
 public sealed class MemoryViewModel : ObservableObject
 {
     private readonly IMemoryMonitor _monitor;
-    private readonly IDialogService _dialogs;
     private readonly DispatcherTimer _timer;
 
     private string _totalDisplay     = "—";
@@ -22,7 +21,6 @@ public sealed class MemoryViewModel : ObservableObject
     public MemoryViewModel(IMemoryMonitor monitor, IDialogService dialogs)
     {
         _monitor = monitor;
-        _dialogs = dialogs;
 
         OptimizeCommand = new AsyncRelayCommand(OptimizeAsync, () => !IsBusy);
 
@@ -47,10 +45,10 @@ public sealed class MemoryViewModel : ObservableObject
     }
 
     public string HonestNotice =>
-        "Sur Windows moderne, « vider la RAM » est généralement inutile voire contre-productif : " +
-        "le cache mémoire est bénéfique. L'optimisation avancée purge aussi la Standby List " +
-        "(mémoire non utilisée en cache) ce qui libère de la RAM physique réelle — mais l'effet " +
-        "est temporaire. Requiert les droits administrateur pour la Standby List.";
+        "L'optimisation compacte la mémoire des processus (working sets) et purge la " +
+        "Standby List (mémoire en cache non utilisée), ce qui libère immédiatement de la " +
+        "RAM physique — comme Wise Memory Optimizer. Idéal avant de lancer un jeu ou une " +
+        "application gourmande. La purge de la Standby List requiert les droits administrateur.";
 
     private void Refresh()
     {
@@ -63,11 +61,8 @@ public sealed class MemoryViewModel : ObservableObject
 
     private async Task OptimizeAsync()
     {
-        var confirmed = _dialogs.Confirm(
-            "Optimiser la RAM",
-            HonestNotice + "\n\nLancer l'optimisation mémoire ?");
-        if (!confirmed) return;
-
+        // Pas de fenêtre de confirmation : un clic = optimisation immédiate,
+        // le résultat s'affiche directement dans la page.
         IsBusy = true;
         LastResult = "Optimisation en cours…";
 

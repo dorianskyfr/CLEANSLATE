@@ -21,6 +21,25 @@ public sealed class RelayCommand : ICommand
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
 
+/// <summary>Commande synchrone avec paramètre typé pour le binding WPF.</summary>
+public sealed class RelayCommand<T> : ICommand where T : class
+{
+    private readonly Action<T?> _execute;
+    private readonly Func<T?, bool>? _canExecute;
+
+    public RelayCommand(Action<T?> execute, Func<T?, bool>? canExecute = null)
+    {
+        _execute = execute;
+        _canExecute = canExecute;
+    }
+
+    public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter as T) ?? true;
+    public void Execute(object? parameter) => _execute(parameter as T);
+
+    public event EventHandler? CanExecuteChanged;
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+}
+
 /// <summary>
 /// Commande asynchrone : empêche la ré-entrance (désactive la commande pendant
 /// l'exécution) et capture les exceptions pour ne pas crasher l'UI.

@@ -9,8 +9,16 @@ using Microsoft.Win32;
 
 namespace CleanSlate.Core.Modules;
 
-/// <summary>Jeu installé détecté sur la machine (Steam, Epic ou dossier choisi à la main).</summary>
-public sealed record InstalledGame(string Name, string InstallDir, string Source)
+/// <summary>
+/// Jeu installé détecté sur la machine (Steam, Epic ou dossier choisi à la main).
+/// <paramref name="CoverImage"/> : chemin local ou URL https de la jaquette (null si inconnue).
+/// </summary>
+public sealed record InstalledGame(
+    string Name,
+    string InstallDir,
+    string Source,
+    string? SteamAppId = null,
+    string? CoverImage = null)
 {
     public override string ToString() => $"{Name} ({Source})";
 }
@@ -133,15 +141,22 @@ public sealed class DlssEnablerService : IDlssEnablerService
 
             foreach (var acf in Directory.EnumerateFiles(steamApps, "appmanifest_*.acf"))
             {
-                string? name = null, installDir = null;
-                try { (name, installDir) = ParseAppManifest(File.ReadAllText(acf)); }
+                string? appId = null, name = null, installDir = null;
+                try { (appId, name, installDir) = ParseAppManifest(File.ReadAllText(acf)); }
                 catch { }
                 if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(installDir)) continue;
                 if (IsSteamTooling(name)) continue;
 
                 var dir = Path.Combine(steamApps, "common", installDir);
-                if (Directory.Exists(dir))
-                    yield return new InstalledGame(name, dir, "Steam");
+                if (!Directory.Exists(dir)) continue;
+
+                // Jaquette : cache local de Steam d'abord, sinon le CDN officiel
+                // (l'Image WPF télécharge l'URL de façon asynchrone).
+                string? cover = null;
+                if (!string.IsNullOrEmpty(appId))
+                    cover = FindSteamCover(root, appId) ?? SteamCoverUrl(appId);
+
+                yield return new InstalledGame(name, dir, "Steam", appId, cover);
             }
         }
     }
@@ -183,16 +198,52 @@ public sealed class DlssEnablerService : IDlssEnablerService
         return paths;
     }
 
-    /// <summary>Extrait (nom, dossier d'installation) d'un appmanifest_*.acf Steam.</summary>
-    internal static (string? Name, string? InstallDir) ParseAppManifest(string acfContent)
+    /// <summary>Extrait (appid, nom, dossier d'installation) d'un appmanifest_*.acf Steam.</summary>
+    internal static (string? AppId, string? Name, string? InstallDir) ParseAppManifest(string acfContent)
     {
         static string? First(string content, string key)
         {
             var m = Regex.Match(content, $"\"{key}\"\\s+\"([^\"]*)\"");
             return m.Success ? m.Groups[1].Value.Replace(@"\\", @"\") : null;
         }
-        return (First(acfContent, "name"), First(acfContent, "installdir"));
+        return (First(acfContent, "appid"), First(acfContent, "name"), First(acfContent, "installdir"));
     }
+
+    /// <summary>
+    /// Cherche la jaquette verticale (600×900) d'un jeu dans le cache local de Steam.
+    /// Deux dispositions existent selon la version de Steam :
+    /// appcache\librarycache\&lt;appid&gt;_library_600x900.jpg (ancienne) ou
+    /// appcache\librarycache\&lt;appid&gt;\library_600x900.jpg (récente).
+    /// </summary>
+    internal static string? FindSteamCover(string steamRoot, string appId)
+    {
+        try
+        {
+            var cache = Path.Combine(steamRoot, "appcache", "librarycache");
+
+            foreach (var name in new[] { $"{appId}_library_600x900.jpg", $"{appId}_header.jpg" })
+            {
+                var p = Path.Combine(cache, name);
+                if (File.Exists(p)) return p;
+            }
+
+            var subDir = Path.Combine(cache, appId);
+            if (Directory.Exists(subDir))
+            {
+                foreach (var pattern in new[] { "library_600x900*.jpg", "header*.jpg" })
+                {
+                    var found = Directory.EnumerateFiles(subDir, pattern).FirstOrDefault();
+                    if (found is not null) return found;
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>URL de la jaquette verticale sur le CDN officiel de Steam.</summary>
+    internal static string SteamCoverUrl(string appId) =>
+        $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg";
 
     private static IEnumerable<InstalledGame> ScanEpicGames()
     {

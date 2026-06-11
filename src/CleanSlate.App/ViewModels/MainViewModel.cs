@@ -9,6 +9,17 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.1 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• DLSS Enabler : bibliothèque visuelle — les jeux détectés s'affichent\n" +
+        "  en grille de jaquettes (artwork Steam officiel), avec badge\n" +
+        "  « ✓ DLSS Enabler » sur les jeux où le mod est installé, recherche\n" +
+        "  instantanée et détection automatique à l'ouverture du Mode Jeu.\n" +
+        "  Les dossiers ajoutés à la main sont mémorisés.\n" +
+        "• Optimisation RAM : un clic = optimisation immédiate, sans fenêtre\n" +
+        "  de confirmation. Résultat affiché directement dans la page.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.0 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Nouvel onglet « Accueil » : vue d'ensemble du système (Windows, CPU,\n" +
