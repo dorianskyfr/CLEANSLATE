@@ -229,20 +229,25 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Détection des jeux -->
+                        <!-- Barre d'actions : re-scan, recherche, dossier manuel -->
                         <Grid Margin="0,16,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Content="🔍 Détecter mes jeux"
+                            <Button Grid.Column="0" Content="🔄 Re-scanner mes jeux"
                                     Style="{StaticResource AccentButton}"
                                     Command="{Binding ScanGamesCommand}" />
-                            <ComboBox Grid.Column="1" ItemsSource="{Binding Games}"
-                                      SelectedItem="{Binding SelectedGame}"
-                                      Padding="8,6" Margin="8,0,0,0" />
-                            <Button Grid.Column="2" Content="📁 Choisir un dossier…"
+                            <Grid Grid.Column="1" Margin="8,0,0,0">
+                                <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="8,6" VerticalContentAlignment="Center" />
+                                <TextBlock Text="🔎 Rechercher un jeu…" Margin="12,0,0,0"
+                                           VerticalAlignment="Center" IsHitTestVisible="False"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           Visibility="{Binding ShowFilterHint, Converter={StaticResource BoolToVisibility}}" />
+                            </Grid>
+                            <Button Grid.Column="2" Content="📁 Ajouter un dossier…"
                                     Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                     Command="{Binding PickFolderCommand}" />
                         </Grid>
@@ -250,14 +255,82 @@
                         <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
                                    FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
 
+                        <!-- Bibliothèque visuelle : jaquettes des jeux détectés -->
+                        <ItemsControl ItemsSource="{Binding GamesView}" Margin="0,12,0,0"
+                                      Visibility="{Binding HasGames, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="tile" Width="122" Margin="0,0,10,10" Padding="6"
+                                            Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                                            BorderThickness="2" BorderBrush="Transparent" Cursor="Hand">
+                                        <Border.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick"
+                                                          Command="{Binding DataContext.SelectGameCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                          CommandParameter="{Binding}" />
+                                        </Border.InputBindings>
+                                        <StackPanel>
+                                            <Grid Height="159">
+                                                <!-- Tuile de remplacement (pas de jaquette / échec de chargement) -->
+                                                <Border CornerRadius="6" Background="{DynamicResource BackgroundBrush}">
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Initial}" FontSize="42" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource AccentBrush}"
+                                                                   HorizontalAlignment="Center" />
+                                                        <TextBlock Text="🎮" FontSize="16" HorizontalAlignment="Center"
+                                                                   Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <!-- Jaquette (cache local Steam ou CDN, chargée en asynchrone) -->
+                                                <Border CornerRadius="6">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="{Binding CoverImage}" Stretch="UniformToFill" />
+                                                    </Border.Background>
+                                                </Border>
+                                                <!-- Badge « mod installé » -->
+                                                <Border Background="#E61E9E50" CornerRadius="4" Padding="5,2" Margin="5"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                        Visibility="{Binding Installed, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="✓ DLSS Enabler" FontSize="9" Foreground="White"
+                                                               FontWeight="SemiBold" />
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Text="{Binding Name}" FontSize="11"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                       MaxHeight="30" Margin="0,6,0,0" TextAlignment="Center" />
+                                            <TextBlock Text="{Binding Source}" FontSize="9"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextAlignment="Center" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter TargetName="tile" Property="BorderBrush"
+                                                    Value="{DynamicResource AccentBrush}" />
+                                        </DataTrigger>
+                                        <Trigger SourceName="tile" Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="tile" Property="Background"
+                                                    Value="{DynamicResource NavHoverBrush}" />
+                                        </Trigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
                         <!-- État du jeu sélectionné + actions -->
                         <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16"
                                 Margin="0,12,0,0"
                                 Visibility="{Binding HasSelectedGame, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
-                                <TextBlock Text="{Binding SelectedGame.Name}" Foreground="{DynamicResource TextBrush}"
+                                <TextBlock Text="{Binding SelectedTile.Name}" Foreground="{DynamicResource TextBrush}"
                                            FontWeight="Bold" FontSize="16" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding SelectedGame.InstallDir}" Style="{StaticResource MutedText}"
+                                <TextBlock Text="{Binding SelectedTile.InstallDir}" Style="{StaticResource MutedText}"
                                            Margin="0,4,0,0" />
                                 <TextBlock Text="{Binding GameStatusText}" Foreground="{DynamicResource TextBrush}"
                                            FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />

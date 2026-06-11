@@ -41,7 +41,7 @@ public class DlssEnablerTests
     }
 
     [Fact]
-    public void ParseAppManifest_ExtraitNomEtDossier()
+    public void ParseAppManifest_ExtraitAppIdNomEtDossier()
     {
         const string acf = """
             "AppState"
@@ -53,10 +53,66 @@ public class DlssEnablerTests
             }
             """;
 
-        var (name, installDir) = DlssEnablerService.ParseAppManifest(acf);
+        var (appId, name, installDir) = DlssEnablerService.ParseAppManifest(acf);
 
+        Assert.Equal("1091500", appId);
         Assert.Equal("Cyberpunk 2077", name);
         Assert.Equal("Cyberpunk 2077", installDir);
+    }
+
+    // ------------------------------------------------------------------
+    //  Jaquettes (cache local Steam, CDN en repli)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void FindSteamCover_AncienFormat_TrouveLeFichierPlat()
+    {
+        var root = CreateGameDir();
+        try
+        {
+            var cache = Path.Combine(root, "appcache", "librarycache");
+            Directory.CreateDirectory(cache);
+            var cover = Path.Combine(cache, "1091500_library_600x900.jpg");
+            File.WriteAllText(cover, "jpg");
+
+            Assert.Equal(cover, DlssEnablerService.FindSteamCover(root, "1091500"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void FindSteamCover_NouveauFormat_TrouveLeSousDossier()
+    {
+        var root = CreateGameDir();
+        try
+        {
+            var sub = Path.Combine(root, "appcache", "librarycache", "1091500");
+            Directory.CreateDirectory(sub);
+            var cover = Path.Combine(sub, "library_600x900.jpg");
+            File.WriteAllText(cover, "jpg");
+
+            Assert.Equal(cover, DlssEnablerService.FindSteamCover(root, "1091500"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void FindSteamCover_RienEnCache_RenvoieNull()
+    {
+        var root = CreateGameDir();
+        try
+        {
+            Assert.Null(DlssEnablerService.FindSteamCover(root, "1091500"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void SteamCoverUrl_PointeVersLeCdnOfficiel()
+    {
+        Assert.Equal(
+            "https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/library_600x900.jpg",
+            DlssEnablerService.SteamCoverUrl("1091500"));
     }
 
     [Theory]

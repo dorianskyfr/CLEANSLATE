@@ -19,13 +19,14 @@ public sealed class GameModeViewModel : ObservableObject
         IGpuOverclocker overclocker,
         IGpuDriverChecker driverChecker,
         IDlssEnablerService dlssEnabler,
+        IAppSettingsService settings,
         IDialogService dialogs)
     {
         _gameMode = gameMode;
         _dialogs = dialogs;
         ToggleCommand = new AsyncRelayCommand(ToggleAsync);
         Overclocking = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
-        DlssEnabler = new DlssEnablerViewModel(dlssEnabler, dialogs);
+        DlssEnabler = new DlssEnablerViewModel(dlssEnabler, settings, dialogs);
     }
 
     public AsyncRelayCommand ToggleCommand { get; }

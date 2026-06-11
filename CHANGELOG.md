@@ -1,3 +1,14 @@
+## v1.1.0
+
+### Nouveautés
+- 🖼️ **DLSS Enabler : bibliothèque visuelle** : fini le menu déroulant — les jeux détectés s'affichent désormais en **grille de jaquettes** (artwork vertical officiel Steam, récupéré du cache local de Steam ou du CDN officiel ; tuile élégante avec l'initiale du jeu pour Epic Games et les dossiers manuels). Chaque jaquette porte un **badge « ✓ DLSS Enabler »** quand le mod est installé dans ce jeu — l'état de toute la bibliothèque se voit d'un coup d'œil. Un clic sur une jaquette sélectionne le jeu.
+- 🔎 **DLSS Enabler : recherche et scan automatique** : un champ « Rechercher un jeu… » filtre la grille en direct, et la détection des jeux se lance **automatiquement** à l'arrivée sur le Mode Jeu (plus besoin de cliquer). Les dossiers de jeux ajoutés à la main sont **mémorisés** d'une session à l'autre.
+
+### Améliorations
+- 🚀 **Optimisation RAM en un clic** : le bouton « Optimiser la RAM » agit désormais **immédiatement**, sans fenêtre de confirmation — le résultat s'affiche directement dans la page. Le texte d'explication a été réécrit : l'optimisation (compactage des working sets + purge de la Standby List) fonctionne très bien, y compris sur Windows 11.
+
+---
+
 ## v1.0.0
 
 ### Nouveautés

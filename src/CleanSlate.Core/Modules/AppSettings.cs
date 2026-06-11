@@ -3,7 +3,8 @@ using System.Text.Json;
 namespace CleanSlate.Core.Modules;
 
 /// <summary>
-/// Préférences utilisateur persistées entre les sessions (thème, taille de fenêtre).
+/// Préférences utilisateur persistées entre les sessions (thème, taille de fenêtre,
+/// dossiers de jeux ajoutés à la main dans DLSS Enabler).
 /// </summary>
 public sealed record AppSettings
 {
@@ -11,6 +12,9 @@ public sealed record AppSettings
     public double WindowWidth { get; init; } = 1060;
     public double WindowHeight { get; init; } = 720;
     public bool WindowMaximized { get; init; }
+
+    /// <summary>Dossiers de jeux ajoutés manuellement dans l'onglet DLSS Enabler.</summary>
+    public IReadOnlyList<string> ManualGameFolders { get; init; } = Array.Empty<string>();
 }
 
 public interface IAppSettingsService
