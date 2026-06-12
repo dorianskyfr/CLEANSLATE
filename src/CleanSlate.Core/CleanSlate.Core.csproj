@@ -25,4 +25,10 @@
     <InternalsVisibleTo Include="CleanSlate.Core.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- DLL officiel de DLSS Enabler, embarqué pour l'installation dans le Mode Jeu
+         (module DlssEnabler) : plus de téléchargement depuis GitHub à l'installation. -->
+    <EmbeddedResource Include="Assets\dlss-enabler.dll" LogicalName="CleanSlate.Core.Assets.dlss-enabler.dll" />
+  </ItemGroup>
+
 </Project>

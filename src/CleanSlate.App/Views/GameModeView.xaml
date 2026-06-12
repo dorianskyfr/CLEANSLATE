@@ -299,6 +299,13 @@
                                                     <TextBlock Text="✓ DLSS Enabler" FontSize="9" Foreground="White"
                                                                FontWeight="SemiBold" />
                                                 </Border>
+                                                <!-- Badge « Xbox Game Pass » (avertissement intégrité du package) -->
+                                                <Border Background="#E6107C10" CornerRadius="4" Padding="5,2" Margin="5"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                        Visibility="{Binding IsGamePass, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="🎮 Game Pass" FontSize="9" Foreground="White"
+                                                               FontWeight="SemiBold" />
+                                                </Border>
                                             </Grid>
                                             <TextBlock Text="{Binding Name}" FontSize="11"
                                                        Foreground="{DynamicResource TextBrush}"
@@ -334,6 +341,12 @@
                                            Margin="0,4,0,0" />
                                 <TextBlock Text="{Binding GameStatusText}" Foreground="{DynamicResource TextBrush}"
                                            FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />
+
+                                <!-- Avertissement Xbox Game Pass : intégrité du package, persistance non garantie -->
+                                <TextBlock Text="⚠️ Jeu Xbox Game Pass : Windows peut supprimer les DLL ajoutées lors d'une vérification d'intégrité ou d'une mise à jour."
+                                           Foreground="{DynamicResource AccentBrush}" FontSize="12"
+                                           Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Visibility="{Binding SelectedTile.IsGamePass, Converter={StaticResource BoolToVisibility}}" />
 
                                 <WrapPanel Margin="0,14,0,0">
                                     <Button Content="⬇️ Installer DLSS Enabler" Style="{StaticResource AccentButton}"
