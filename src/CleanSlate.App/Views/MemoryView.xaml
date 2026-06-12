@@ -74,13 +74,20 @@
                        FontSize="13" TextWrapping="Wrap" />
         </Border>
 
-        <!-- Bouton d'optimisation -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <TextBlock Text="Optimisation en cours…" VerticalAlignment="Center" Margin="0,0,12,0"
-                       Foreground="{DynamicResource MutedBrush}" FontSize="12"
-                       Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
-            <Button Content="🚀 Optimiser la RAM" Style="{StaticResource AccentButton}"
-                    Command="{Binding OptimizeCommand}" />
-        </StackPanel>
+        <!-- Optimisation automatique + bouton d'optimisation -->
+        <Grid Grid.Row="5" Margin="0,16,0,0">
+            <CheckBox IsChecked="{Binding AutoOptimizeEnabled}" VerticalAlignment="Center"
+                      HorizontalAlignment="Left">
+                <TextBlock Text="{Binding AutoOptimizeLabel}" TextWrapping="Wrap" MaxWidth="420"
+                           Foreground="{DynamicResource TextBrush}" FontSize="12" />
+            </CheckBox>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Text="Optimisation en cours…" VerticalAlignment="Center" Margin="0,0,12,0"
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12"
+                           Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="🚀 Optimiser la RAM" Style="{StaticResource AccentButton}"
+                        Command="{Binding OptimizeCommand}" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

@@ -1,3 +1,19 @@
+## v1.2.0
+
+### Nouveautés
+- 🎯 **DLSS Enabler : installation à côté de l'exécutable** : le proxy DLL doit être chargé par l'exe du jeu — CleanSlate **localise désormais automatiquement l'exécutable principal** (y compris dans les sous-dossiers type `Binaries\Win64` d'Unreal Engine, `bin\x64`, ou le dossier `Content` des jeux Game Pass) et pose le DLL à côté, en ignorant les utilitaires (installateurs, anticheats, crash handlers). La détection et la désinstallation inspectent aussi ces sous-dossiers.
+- 🎮 **DLSS Enabler : vraie méthode Xbox Game Pass** : les dossiers des jeux Game Pass sont verrouillés par Windows. CleanSlate **teste l'écriture avant d'installer**, tente un **déverrouillage automatique** du dossier (icacls, si lancé en administrateur), et sinon affiche la marche à suivre exacte (activer les fonctionnalités de modding dans l'app Xbox, ou relancer CleanSlate en admin). Fini l'échec silencieux.
+- 🛡️ **Bloqueur de pub : choix du fournisseur DNS** : AdGuard DNS (pubs + traqueurs, recommandé), AdGuard Family (+ contrôle parental), Cloudflare Security ou Quad9 (domaines malveillants uniquement). Le DNS d'origine reste sauvegardé et restauré à la désactivation — y compris les sauvegardes faites par les versions précédentes.
+- 🚀 **RAM : optimisation automatique** : nouvelle option « Optimiser automatiquement quand la RAM dépasse 90 % » (au plus une fois toutes les 10 minutes), persistée entre les sessions.
+- 🧹 **Nettoyage : 2 nouvelles catégories** : **Cache des shaders DirectX/GPU** (D3DSCache, NVIDIA, AMD — souvent plusieurs Go, régénéré par les jeux) et **Rapports d'erreurs Windows** (WER). Avec descriptions honnêtes des contreparties.
+- 🎮 **Mode Jeu : vos applications à suspendre** : un champ permet d'ajouter vos propres processus (ex. `firefox, obs64`) à la liste blanche de suspension, mémorisés d'une session à l'autre.
+
+### Améliorations
+- 🏠 **Accueil** : conseil de redémarrage affiché quand le PC est allumé depuis plus de 7 jours sans reboot complet.
+- 🎯 **DLSS Enabler** : le bilan d'installation indique précisément le fichier posé (`winmm.dll`, plugin ASI…) et le dossier exact.
+
+---
+
 ## v1.1.5
 
 ### Nouveautés

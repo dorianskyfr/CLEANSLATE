@@ -168,7 +168,8 @@ public sealed class DlssEnablerViewModel : ObservableObject
         "(x2/x3/x4, façon DLSS 4) — sur n'importe quel GPU DirectX 12, dans les jeux " +
         "qui prennent en charge DLSS2/DLSS3 nativement. Le DLL OFFICIEL du mod est " +
         $"intégré à CleanSlate (v{_service.EmbeddedVersion}, aucun téléchargement) : il est " +
-        "copié dans le dossier du jeu choisi sous le nom de proxy le plus sûr (ou en " +
+        "copié À CÔTÉ DE L'EXÉCUTABLE du jeu (localisé automatiquement, même dans les " +
+        "sous-dossiers type bin\\x64) sous le nom de proxy le plus sûr (ou en " +
         "plugin ASI si nécessaire), avec désinstallation propre en un clic. ⚠️ N'utilisez " +
         "JAMAIS ce mod dans un jeu multijoueur protégé par un anticheat : l'injection de " +
         "DLL peut entraîner un bannissement. Réservez-le aux jeux solo.";
@@ -319,10 +320,11 @@ public sealed class DlssEnablerViewModel : ObservableObject
         var game = _selectedTile.Game;
 
         var gamePassWarning = _selectedTile.IsGamePass
-            ? "\n\n⚠️ Ce jeu vient du Xbox Game Pass : Windows vérifie parfois l'intégrité des " +
-              "fichiers du jeu et peut SUPPRIMER les DLL ajoutées (notamment lors d'une mise à " +
-              "jour ou d'une réparation). L'installation peut ne pas fonctionner ou disparaître " +
-              "après coup — sans risque pour le jeu, mais sans garantie de persistance."
+            ? "\n\n⚠️ Ce jeu vient du Xbox Game Pass : son dossier est protégé par Windows. " +
+              "CleanSlate localise l'exécutable et tente le déverrouillage automatiquement " +
+              "(des instructions s'affichent si besoin). À savoir : une mise à jour ou une " +
+              "réparation du jeu peut supprimer les DLL ajoutées — sans risque pour le jeu, " +
+              "il suffira de réinstaller le mod."
             : string.Empty;
 
         var confirmed = _dialogs.Confirm("Installer DLSS Enabler",
@@ -333,20 +335,43 @@ public sealed class DlssEnablerViewModel : ObservableObject
         if (!confirmed) return;
 
         IsBusy = true;
-        Status = "Installation du mod (fichiers intégrés à CleanSlate)…";
+        Status = "Installation du mod (localisation de l'exécutable du jeu)…";
         try
         {
-            var ok = await _service.InstallAsync(game.InstallDir, CancellationToken.None);
+            var result = await _service.InstallAsync(game.InstallDir, CancellationToken.None);
 
             RefreshStatus();
-            if (ok)
+            if (result.Success)
             {
-                Status = $"DLSS Enabler v{_service.EmbeddedVersion} installé dans « {game.Name} ».";
+                Status = $"DLSS Enabler v{_service.EmbeddedVersion} installé dans « {game.Name} » " +
+                         $"({result.InstalledFile}).";
                 _dialogs.Info("DLSS Enabler",
                     $"DLSS Enabler v{_service.EmbeddedVersion} est installé dans « {game.Name} ».\n\n" +
+                    $"Fichier posé : {result.InstalledFile}\nÀ côté de l'exécutable, dans :\n{result.TargetDir}\n\n" +
                     "Lancez le jeu puis activez DLSS (Super Resolution / Frame Generation, y compris " +
                     "le Multi Frame Generation) dans son overlay (Maj+F3 par défaut) ou ses options " +
                     "graphiques.");
+            }
+            else if (result.Failure == DlssInstallFailure.WriteDenied && _selectedTile.IsGamePass)
+            {
+                Status = string.Empty;
+                _dialogs.Warn("DLSS Enabler — jeu Xbox Game Pass",
+                    "Windows refuse l'écriture dans le dossier de ce jeu Game Pass : c'est la " +
+                    "protection normale des jeux installés par l'app Xbox.\n\n" +
+                    "Pour déverrouiller le dossier, deux méthodes :\n" +
+                    "1. Dans l'app Xbox : page du jeu → bouton « ⋯ » → Gérer → Fichiers → " +
+                    "« Activer les fonctionnalités de modding avancées » (selon le jeu), puis réessayez ;\n" +
+                    "2. Ou relancez CleanSlate en tant qu'administrateur (bouton en haut de la " +
+                    "fenêtre) : CleanSlate déverrouillera le dossier automatiquement.\n\n" +
+                    "Dossier concerné :\n" + result.TargetDir);
+            }
+            else if (result.Failure == DlssInstallFailure.WriteDenied)
+            {
+                Status = string.Empty;
+                _dialogs.Warn("DLSS Enabler",
+                    "Windows refuse l'écriture dans le dossier du jeu :\n" + result.TargetDir +
+                    "\n\nRelancez CleanSlate en tant qu'administrateur (bouton en haut de la " +
+                    "fenêtre) puis réessayez.");
             }
             else
             {

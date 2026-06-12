@@ -15,6 +15,18 @@ public sealed record AppSettings
 
     /// <summary>Dossiers de jeux ajoutés manuellement dans l'onglet DLSS Enabler.</summary>
     public IReadOnlyList<string> ManualGameFolders { get; init; } = Array.Empty<string>();
+
+    /// <summary>Optimisation RAM automatique quand la charge mémoire dépasse le seuil.</summary>
+    public bool AutoMemoryOptimize { get; init; }
+
+    /// <summary>Seuil de charge mémoire (%) déclenchant l'optimisation automatique.</summary>
+    public int AutoMemoryOptimizeThreshold { get; init; } = 90;
+
+    /// <summary>Applications supplémentaires (noms de processus) à suspendre en Mode Jeu.</summary>
+    public IReadOnlyList<string> CustomSuspendProcesses { get; init; } = Array.Empty<string>();
+
+    /// <summary>Fournisseur DNS choisi pour le blocage de pub (id, ex. « adguard »).</summary>
+    public string AdBlockProvider { get; init; } = "adguard";
 }
 
 public interface IAppSettingsService

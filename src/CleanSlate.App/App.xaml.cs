@@ -46,6 +46,8 @@ public partial class App : Application
             new TempFilesProvider(logger),
             new BrowserCacheProvider(logger),
             new ThumbnailCacheProvider(logger),
+            new ShaderCacheProvider(logger),
+            new ErrorReportsProvider(logger),
             new RecycleBinProvider(logger),
             new WindowsLogsProvider(logger),
             new PrefetchProvider(logger),
@@ -76,12 +78,12 @@ public partial class App : Application
 
         var dashboardVm    = new DashboardViewModel(systemInfo, maintenance, overclocking, dialogs);
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
-        var memoryVm       = new MemoryViewModel(memoryMonitor, dialogs);
+        var memoryVm       = new MemoryViewModel(memoryMonitor, settingsSvc, dialogs);
         var driversVm      = new DriversViewModel(dialogs);
         var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dlssEnabler, settingsSvc, dialogs);
         var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, debloater, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);
-        var adBlockVm      = new AdBlockViewModel(adBlockSvc, dialogs);
+        var adBlockVm      = new AdBlockViewModel(adBlockSvc, settingsSvc, dialogs);
 
         var mainVm = new MainViewModel(
             dashboardVm, cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm,

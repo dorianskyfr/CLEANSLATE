@@ -35,6 +35,13 @@
                                    Style="{StaticResource MutedText}" />
                         <TextBlock Text="{Binding SuspendedAppsList}" Foreground="{DynamicResource TextBrush}"
                                    TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                        <!-- Applications personnalisées (persistées entre les sessions) -->
+                        <TextBlock Text="Vos applications à suspendre en plus (noms de processus, séparés par des virgules) :"
+                                   Style="{StaticResource MutedText}" Margin="0,14,0,0" />
+                        <TextBox Text="{Binding CustomProcessesText, UpdateSourceTrigger=LostFocus}"
+                                 Padding="8,6" Margin="0,6,0,0" MaxWidth="700" HorizontalAlignment="Left"
+                                 MinWidth="420" ToolTip="Exemple : firefox, obs64, Notion" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="2" Margin="0,20,0,0">

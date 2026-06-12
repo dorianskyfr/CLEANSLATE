@@ -27,6 +27,35 @@ public sealed record DlssEnablerStatus(
     IReadOnlyList<string> DetectedFiles,
     string? UninstallerPath);
 
+/// <summary>Raison d'échec d'une installation du mod (pour un message UI adapté).</summary>
+public enum DlssInstallFailure
+{
+    None,
+
+    /// <summary>Le dossier du jeu n'existe pas/plus.</summary>
+    GameDirMissing,
+
+    /// <summary>
+    /// Écriture refusée dans le dossier du jeu — typique des jeux Xbox Game Pass, dont
+    /// le dossier est verrouillé par Windows tant que les options de modding ne sont pas
+    /// activées dans l'app Xbox (« Activer les fonctionnalités de modding avancées »).
+    /// </summary>
+    WriteDenied,
+
+    /// <summary>Erreur inattendue (fichier verrouillé par le jeu en cours, disque plein…).</summary>
+    Unknown,
+}
+
+/// <summary>
+/// Résultat d'une installation du mod : sous quel nom et dans quel dossier le DLL
+/// a été posé (le dossier de l'EXÉCUTABLE du jeu, pas forcément la racine).
+/// </summary>
+public sealed record DlssInstallResult(
+    bool Success,
+    string? InstalledFile,
+    string? TargetDir,
+    DlssInstallFailure Failure = DlssInstallFailure.None);
+
 /// <summary>
 /// Gestion du mod « DLSS Enabler » (artur-graniszewski — github.com/artur-graniszewski/DLSS-Enabler,
 /// aussi distribué sur Nexus Mods, site/mods/757). Le mod simule DLSS Super Resolution et
@@ -58,10 +87,12 @@ public interface IDlssEnablerService
     DlssEnablerStatus GetStatus(string gameDir);
 
     /// <summary>
-    /// Installe le mod dans le dossier du jeu à partir du DLL embarqué dans CleanSlate :
-    /// copié sous le nom de proxy le plus sûr pour ce jeu (cf. <see cref="DlssEnablerStatus"/>).
+    /// Installe le mod à partir du DLL embarqué dans CleanSlate : le DLL est copié
+    /// À CÔTÉ DE L'EXÉCUTABLE du jeu (localisé automatiquement, y compris dans les
+    /// sous-dossiers type Binaries\Win64 ou Content des jeux Game Pass), sous le nom
+    /// de proxy le plus sûr pour ce jeu.
     /// </summary>
-    Task<bool> InstallAsync(string gameDir, CancellationToken ct);
+    Task<DlssInstallResult> InstallAsync(string gameDir, CancellationToken ct);
 
     /// <summary>Désinstalle le mod du dossier du jeu. Renvoie false si rien n'a pu être retiré.</summary>
     Task<bool> UninstallAsync(string gameDir, CancellationToken ct);
@@ -306,6 +337,136 @@ public sealed class DlssEnablerService : IDlssEnablerService
     }
 
     // ------------------------------------------------------------------
+    //  Localisation de l'exécutable du jeu
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Sous-dossiers à ignorer pendant la recherche de l'exécutable : outils
+    /// redistribuables, anticheats, données — jamais l'exécutable du jeu.
+    /// </summary>
+    private static readonly string[] SkippedDirNames =
+    {
+        "_CommonRedist", "CommonRedist", "Redist", "Redistributables", "DirectX",
+        "DotNet", "DotNetCore", "VCRedist", "EasyAntiCheat", "BattlEye", "Support",
+        "Installers", "__Installer", "Engine",
+    };
+
+    /// <summary>
+    /// Exécutables « utilitaires » à ignorer : installateurs, crash handlers,
+    /// anticheats… jamais le binaire principal du jeu.
+    /// </summary>
+    internal static bool IsHelperExecutable(string fileName)
+    {
+        var n = Path.GetFileNameWithoutExtension(fileName);
+        string[] fragments =
+        {
+            "unins", "setup", "install", "redist", "vcredist", "vc_redist",
+            "dxsetup", "dxwebsetup", "oalinst", "crash", "EasyAntiCheat",
+            "BattlEye", "BEService", "report", "cleanup", "activation",
+            "touchup", "QuickSFV", "UnityCrashHandler",
+        };
+        return fragments.Any(f => n.Contains(f, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Localise le dossier contenant l'EXÉCUTABLE principal du jeu : le proxy DLL doit
+    /// être posé à côté de l'exe pour être chargé. Beaucoup de jeux ont leur exe dans
+    /// un sous-dossier (Binaries\Win64 pour Unreal Engine, bin\x64, ou le contenu d'un
+    /// jeu Game Pass) : on cherche le plus gros .exe (le binaire principal est presque
+    /// toujours le plus volumineux), en ignorant les utilitaires (installateurs,
+    /// anticheats, crash handlers).
+    /// </summary>
+    internal static string? FindExecutableDir(string gameDir, int maxDepth = 3)
+    {
+        string? bestDir = null;
+        long bestSize = -1;
+
+        void Walk(string dir, int depth)
+        {
+            IEnumerable<string> files;
+            try { files = Directory.EnumerateFiles(dir, "*.exe"); }
+            catch { return; }
+
+            foreach (var exe in files)
+            {
+                if (IsHelperExecutable(exe)) continue;
+                try
+                {
+                    var size = new FileInfo(exe).Length;
+                    if (size > bestSize)
+                    {
+                        bestSize = size;
+                        bestDir = dir;
+                    }
+                }
+                catch { }
+            }
+
+            if (depth >= maxDepth) return;
+            IEnumerable<string> subs;
+            try { subs = Directory.EnumerateDirectories(dir); }
+            catch { return; }
+            foreach (var sub in subs)
+            {
+                var name = Path.GetFileName(sub);
+                if (SkippedDirNames.Any(s => string.Equals(s, name, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                Walk(sub, depth + 1);
+            }
+        }
+
+        Walk(gameDir, 0);
+        return bestDir;
+    }
+
+    /// <summary>Dossier où poser le proxy DLL : celui de l'exe, sinon la racine du jeu.</summary>
+    internal static string ResolveInstallDir(string gameDir) =>
+        FindExecutableDir(gameDir) ?? gameDir;
+
+    /// <summary>
+    /// Teste si l'écriture est possible dans un dossier (création + suppression d'un
+    /// fichier témoin). Les dossiers des jeux Game Pass sont souvent verrouillés.
+    /// </summary>
+    internal static bool CanWriteTo(string dir)
+    {
+        var probe = Path.Combine(dir, $".cleanslate-write-test-{Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllBytes(probe, Array.Empty<byte>());
+            File.Delete(probe);
+            return true;
+        }
+        catch
+        {
+            try { if (File.Exists(probe)) File.Delete(probe); } catch { }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Tente de déverrouiller un dossier de jeu Game Pass en accordant la modification
+    /// au groupe Utilisateurs (icacls, SID indépendant de la langue). Ne fonctionne que
+    /// si CleanSlate s'exécute en administrateur — sinon échec silencieux, l'appelant
+    /// re-teste l'écriture derrière.
+    /// </summary>
+    private static async Task TryUnlockDirectoryAsync(string dir, CancellationToken ct)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("icacls",
+                $"\"{dir}\" /grant *S-1-5-32-545:(OI)(CI)M")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            using var process = Process.Start(psi);
+            if (process is not null)
+                await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch { /* best effort */ }
+    }
+
+    // ------------------------------------------------------------------
     //  Détection de l'état du mod
     // ------------------------------------------------------------------
 
@@ -315,28 +476,51 @@ public sealed class DlssEnablerService : IDlssEnablerService
         if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
             return new DlssEnablerStatus(false, detected, null);
 
-        foreach (var file in DistinctiveFiles)
-        {
-            if (File.Exists(Path.Combine(gameDir, file)))
-                detected.Add(file);
-        }
-        // Variante « plugin ASI » : le .asi est posé dans le sous-dossier plugins.
-        var asiPlugin = Path.Combine(gameDir, "plugins", "dlss-enabler.asi");
-        if (File.Exists(asiPlugin))
-            detected.Add(@"plugins\dlss-enabler.asi");
+        // Le mod peut être à la racine du jeu OU à côté de l'exécutable (sous-dossier
+        // Binaries\Win64, bin\x64, contenu Game Pass…) : on inspecte les deux.
+        var exeDir = ResolveInstallDir(gameDir);
+        var dirs = string.Equals(exeDir, gameDir, StringComparison.OrdinalIgnoreCase)
+            ? new[] { gameDir }
+            : new[] { gameDir, exeDir };
 
-        // Un DLL « chargeur » (version.dll, dxgi.dll…) ne compte comme preuve d'installation
-        // que si ses métadonnées de version confirment qu'il appartient à DLSS Enabler —
-        // jamais celles d'un autre mod (ReShade, Special K…).
-        foreach (var loader in LoaderFiles)
+        foreach (var dir in dirs)
         {
-            var path = Path.Combine(gameDir, loader);
-            if (File.Exists(path) && IsDlssEnablerBinary(path))
-                detected.Add(loader);
+            var prefix = RelativePrefix(gameDir, dir);
+
+            foreach (var file in DistinctiveFiles)
+            {
+                if (File.Exists(Path.Combine(dir, file)))
+                    detected.Add(prefix + file);
+            }
+            // Variante « plugin ASI » : le .asi est posé dans le sous-dossier plugins.
+            if (File.Exists(Path.Combine(dir, "plugins", "dlss-enabler.asi")))
+                detected.Add(prefix + @"plugins\dlss-enabler.asi");
+
+            // Un DLL « chargeur » (version.dll, dxgi.dll…) ne compte comme preuve
+            // d'installation que si ses métadonnées de version confirment qu'il
+            // appartient à DLSS Enabler — jamais celles d'un autre mod (ReShade…).
+            foreach (var loader in LoaderFiles)
+            {
+                var path = Path.Combine(dir, loader);
+                if (File.Exists(path) && IsDlssEnablerBinary(path))
+                    detected.Add(prefix + loader);
+            }
         }
 
         bool installed = detected.Count > 0;
         return new DlssEnablerStatus(installed, detected, FindUninstaller(gameDir));
+    }
+
+    /// <summary>Préfixe relatif lisible (« bin\x64\ ») d'un sous-dossier du jeu, vide pour la racine.</summary>
+    private static string RelativePrefix(string gameDir, string dir)
+    {
+        if (string.Equals(gameDir, dir, StringComparison.OrdinalIgnoreCase)) return string.Empty;
+        try
+        {
+            var rel = Path.GetRelativePath(gameDir, dir);
+            return rel == "." ? string.Empty : rel + Path.DirectorySeparatorChar;
+        }
+        catch { return string.Empty; }
     }
 
     /// <summary>
@@ -376,37 +560,60 @@ public sealed class DlssEnablerService : IDlssEnablerService
 
     /// <summary>
     /// Installe le mod : extrait le DLL officiel embarqué dans CleanSlate et le copie
-    /// dans le dossier du jeu sous le nom de proxy choisi par <see cref="ChooseProxyFileName"/>
-    /// (ou en variante plugin ASI si tous les noms de proxy sont déjà pris par un autre mod).
+    /// À CÔTÉ DE L'EXÉCUTABLE du jeu sous le nom de proxy choisi par
+    /// <see cref="ChooseProxyFileName"/> (ou en variante plugin ASI si tous les noms
+    /// de proxy sont déjà pris par un autre mod). Pour les jeux Game Pass au dossier
+    /// verrouillé, tente d'abord un déverrouillage (efficace si CleanSlate est en
+    /// administrateur), sinon renvoie <see cref="DlssInstallFailure.WriteDenied"/>.
     /// </summary>
-    public async Task<bool> InstallAsync(string gameDir, CancellationToken ct)
+    public async Task<DlssInstallResult> InstallAsync(string gameDir, CancellationToken ct)
     {
-        if (!Directory.Exists(gameDir)) return false;
+        if (!Directory.Exists(gameDir))
+            return new DlssInstallResult(false, null, null, DlssInstallFailure.GameDirMissing);
+
+        var targetDir = ResolveInstallDir(gameDir);
+
+        if (!CanWriteTo(targetDir))
+        {
+            // Dossier verrouillé (Game Pass) : tentative de déverrouillage via icacls
+            // (n'aboutit que si le processus est élevé), puis re-test.
+            await TryUnlockDirectoryAsync(targetDir, ct).ConfigureAwait(false);
+            if (!CanWriteTo(targetDir))
+                return new DlssInstallResult(false, null, targetDir, DlssInstallFailure.WriteDenied);
+        }
 
         byte[] dll;
         try { dll = ReadEmbeddedDll(); }
-        catch { return false; }
+        catch { return new DlssInstallResult(false, null, targetDir, DlssInstallFailure.Unknown); }
 
-        var proxyName = ChooseProxyFileName(gameDir);
+        var proxyName = ChooseProxyFileName(targetDir);
+        string installedFile;
         try
         {
             if (proxyName is not null)
             {
-                await File.WriteAllBytesAsync(Path.Combine(gameDir, proxyName), dll, ct).ConfigureAwait(false);
+                await File.WriteAllBytesAsync(Path.Combine(targetDir, proxyName), dll, ct).ConfigureAwait(false);
+                installedFile = proxyName;
             }
             else
             {
                 // Tous les noms de proxy DLL sont déjà occupés par un autre mod : on pose
                 // le mod sous forme de plugin ASI (nécessite un loader ASI, généralement
                 // déjà présent dans les jeux fortement moddés qui occupent ces DLL).
-                var pluginsDir = Path.Combine(gameDir, "plugins");
+                var pluginsDir = Path.Combine(targetDir, "plugins");
                 Directory.CreateDirectory(pluginsDir);
                 await File.WriteAllBytesAsync(Path.Combine(pluginsDir, "dlss-enabler.asi"), dll, ct).ConfigureAwait(false);
+                installedFile = @"plugins\dlss-enabler.asi";
             }
         }
-        catch { return false; }
+        catch
+        {
+            return new DlssInstallResult(false, null, targetDir, DlssInstallFailure.Unknown);
+        }
 
-        return GetStatus(gameDir).Installed;
+        var ok = GetStatus(gameDir).Installed;
+        return new DlssInstallResult(ok, ok ? installedFile : null, targetDir,
+            ok ? DlssInstallFailure.None : DlssInstallFailure.Unknown);
     }
 
     /// <summary>Lit le DLL officiel de DLSS Enabler embarqué dans les ressources de CleanSlate.</summary>
@@ -471,20 +678,28 @@ public sealed class DlssEnablerService : IDlssEnablerService
             catch { /* on bascule sur la suppression manuelle */ }
         }
 
-        // 2. Repli : suppression manuelle des fichiers du mod. Les DLL « chargeurs »
-        //    (version.dll, dxgi.dll…) ne sont supprimées que si leurs métadonnées
-        //    confirment qu'elles appartiennent à DLSS Enabler — jamais celles d'un
-        //    autre mod (ReShade par exemple).
-        bool removedAny = false;
-        foreach (var file in DistinctiveFiles)
-            removedAny |= TryDelete(Path.Combine(gameDir, file));
-        removedAny |= TryDelete(Path.Combine(gameDir, "plugins", "dlss-enabler.asi"));
+        // 2. Repli : suppression manuelle des fichiers du mod — à la racine ET à côté
+        //    de l'exécutable. Les DLL « chargeurs » (version.dll, dxgi.dll…) ne sont
+        //    supprimées que si leurs métadonnées confirment qu'elles appartiennent à
+        //    DLSS Enabler — jamais celles d'un autre mod (ReShade par exemple).
+        var exeDir = ResolveInstallDir(gameDir);
+        var dirs = string.Equals(exeDir, gameDir, StringComparison.OrdinalIgnoreCase)
+            ? new[] { gameDir }
+            : new[] { gameDir, exeDir };
 
-        foreach (var loader in LoaderFiles)
+        bool removedAny = false;
+        foreach (var dir in dirs)
         {
-            var path = Path.Combine(gameDir, loader);
-            if (File.Exists(path) && IsDlssEnablerBinary(path))
-                removedAny |= TryDelete(path);
+            foreach (var file in DistinctiveFiles)
+                removedAny |= TryDelete(Path.Combine(dir, file));
+            removedAny |= TryDelete(Path.Combine(dir, "plugins", "dlss-enabler.asi"));
+
+            foreach (var loader in LoaderFiles)
+            {
+                var path = Path.Combine(dir, loader);
+                if (File.Exists(path) && IsDlssEnablerBinary(path))
+                    removedAny |= TryDelete(path);
+            }
         }
 
         return removedAny && !GetStatus(gameDir).Installed;

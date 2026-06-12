@@ -55,6 +55,21 @@ public sealed class DashboardViewModel : ObservableObject
     public string RamSummary   { get => _ramSummary;   private set => SetProperty(ref _ramSummary, value); }
     public string UptimeDisplay{ get => _uptimeDisplay;private set => SetProperty(ref _uptimeDisplay, value); }
 
+    private string _uptimeHint = string.Empty;
+
+    /// <summary>Conseil affiché quand le PC n'a pas redémarré depuis longtemps.</summary>
+    public string UptimeHint
+    {
+        get => _uptimeHint;
+        private set
+        {
+            if (SetProperty(ref _uptimeHint, value))
+                OnPropertyChanged(nameof(HasUptimeHint));
+        }
+    }
+
+    public bool HasUptimeHint => !string.IsNullOrEmpty(_uptimeHint);
+
     public string MaintenanceStatus
     {
         get => _maintenanceStatus;
@@ -92,6 +107,10 @@ public sealed class DashboardViewModel : ObservableObject
             CpuName = $"{info.CpuName} ({info.LogicalCores} threads)";
             RamSummary = $"{FormatBytes((long)info.TotalRamBytes)} installés";
             UptimeDisplay = FormatUptime(info.Uptime);
+            UptimeHint = info.Uptime.TotalDays >= 7
+                ? $"💡 PC allumé depuis {(int)info.Uptime.TotalDays} jours sans redémarrage complet : " +
+                  "un redémarrage purge la mémoire et applique les mises à jour en attente."
+                : string.Empty;
 
             Drives.Clear();
             foreach (var d in info.Drives)

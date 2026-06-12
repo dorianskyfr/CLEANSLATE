@@ -61,6 +61,70 @@ public sealed class PrefetchProvider : FileCleaningProviderBase
 }
 
 /// <summary>
+/// Nettoyage des caches de shaders DirectX/GPU. Les jeux les régénèrent à la volée :
+/// gain d'espace souvent important (plusieurs Go), au prix de micro-saccades au
+/// premier lancement suivant, le temps de la recompilation. Utile aussi quand un
+/// cache corrompu provoque des artefacts graphiques.
+/// </summary>
+public sealed class ShaderCacheProvider : FileCleaningProviderBase
+{
+    public ShaderCacheProvider(IActionLogger logger) : base(logger) { }
+
+    public override string Id => "shader-cache";
+    public override string DisplayName => "Cache des shaders (DirectX/GPU)";
+    public override CleaningCategory Category => CleaningCategory.CacheShaders;
+    public override CleaningSeverity Severity => CleaningSeverity.Information;
+
+    public override string Description =>
+        "Supprime les caches de shaders DirectX et GPU (NVIDIA/AMD). Souvent plusieurs Go. " +
+        "Les jeux les régénèrent automatiquement — attendez-vous à de légères saccades au " +
+        "premier lancement suivant, le temps de la recompilation. Utile si un cache corrompu " +
+        "provoque des bugs graphiques.";
+
+    protected override IReadOnlyList<CleaningTarget> Targets { get; } = new[]
+    {
+        new CleaningTarget(@"%LOCALAPPDATA%\D3DSCache", CleaningCategory.CacheShaders, recurse: true),
+        new CleaningTarget(@"%LOCALAPPDATA%\NVIDIA\DXCache", CleaningCategory.CacheShaders, recurse: true),
+        new CleaningTarget(@"%LOCALAPPDATA%\NVIDIA\GLCache", CleaningCategory.CacheShaders, recurse: true),
+        new CleaningTarget(@"%LOCALAPPDATA%\AMD\DxCache", CleaningCategory.CacheShaders, recurse: true),
+        new CleaningTarget(@"%LOCALAPPDATA%\AMD\DxcCache", CleaningCategory.CacheShaders, recurse: true),
+    };
+}
+
+/// <summary>
+/// Nettoyage des rapports d'erreurs Windows (WER) : données de diagnostic envoyées
+/// (ou en attente d'envoi) à Microsoft après un plantage. Aucune incidence sur le
+/// fonctionnement du système — peut représenter plusieurs centaines de Mo.
+/// </summary>
+public sealed class ErrorReportsProvider : FileCleaningProviderBase
+{
+    public ErrorReportsProvider(IActionLogger logger) : base(logger) { }
+
+    public override string Id => "error-reports";
+    public override string DisplayName => "Rapports d'erreurs Windows";
+    public override CleaningCategory Category => CleaningCategory.RapportsErreurs;
+    public override CleaningSeverity Severity => CleaningSeverity.Information;
+    public override bool RequiresAdministrator => true;
+
+    public override string Description =>
+        "Supprime les rapports d'erreurs Windows (WER) : fichiers de diagnostic créés " +
+        "après les plantages d'applications. Sans effet sur le système ; droits " +
+        "administrateur recommandés pour la partie commune à tous les utilisateurs.";
+
+    protected override IReadOnlyList<CleaningTarget> Targets { get; } = new[]
+    {
+        new CleaningTarget(@"%ProgramData%\Microsoft\Windows\WER\ReportQueue",
+            CleaningCategory.RapportsErreurs, recurse: true),
+        new CleaningTarget(@"%ProgramData%\Microsoft\Windows\WER\ReportArchive",
+            CleaningCategory.RapportsErreurs, recurse: true),
+        new CleaningTarget(@"%LOCALAPPDATA%\Microsoft\Windows\WER\ReportQueue",
+            CleaningCategory.RapportsErreurs, recurse: true),
+        new CleaningTarget(@"%LOCALAPPDATA%\Microsoft\Windows\WER\ReportArchive",
+            CleaningCategory.RapportsErreurs, recurse: true),
+    };
+}
+
+/// <summary>
 /// Nettoyage du cache des miniatures (thumbcache_*.db). Régénéré automatiquement
 /// par l'Explorateur. Gain d'espace réel et sûr.
 /// </summary>

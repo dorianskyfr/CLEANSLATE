@@ -10,8 +10,10 @@ namespace CleanSlate.App.ViewModels;
 public sealed class GameModeViewModel : ObservableObject
 {
     private readonly IGameMode _gameMode;
+    private readonly IAppSettingsService _settings;
     private readonly IDialogService _dialogs;
     private string _status = "Mode Jeu inactif.";
+    private string _customProcessesText;
 
     public GameModeViewModel(
         IGameMode gameMode,
@@ -23,7 +25,9 @@ public sealed class GameModeViewModel : ObservableObject
         IDialogService dialogs)
     {
         _gameMode = gameMode;
+        _settings = settings;
         _dialogs = dialogs;
+        _customProcessesText = string.Join(", ", settings.Load().CustomSuspendProcesses);
         ToggleCommand = new AsyncRelayCommand(ToggleAsync);
         Overclocking = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
         DlssEnabler = new DlssEnablerViewModel(dlssEnabler, settings, dialogs);
@@ -45,6 +49,50 @@ public sealed class GameModeViewModel : ObservableObject
     /// <summary>Processus suspendus lors de l'activation.</summary>
     public string SuspendedAppsList =>
         string.Join("  •  ", GameModeOptions.Default.ProcessNamesToSuspend);
+
+    /// <summary>
+    /// Applications supplémentaires à suspendre, saisies par l'utilisateur (noms de
+    /// processus séparés par des virgules, sans .exe). Persistées entre les sessions.
+    /// </summary>
+    public string CustomProcessesText
+    {
+        get => _customProcessesText;
+        set
+        {
+            if (SetProperty(ref _customProcessesText, value))
+            {
+                _settings.Save(_settings.Load() with
+                {
+                    CustomSuspendProcesses = ParseCustomProcesses(value),
+                });
+            }
+        }
+    }
+
+    /// <summary>Découpe la saisie utilisateur en noms de processus propres (sans .exe).</summary>
+    internal static string[] ParseCustomProcesses(string text) =>
+        text.Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(p => p.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? p[..^4] : p)
+            .Where(p => p.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    /// <summary>Options effectives : liste blanche par défaut + applications de l'utilisateur.</summary>
+    private GameModeOptions BuildOptions()
+    {
+        var custom = ParseCustomProcesses(_customProcessesText);
+        if (custom.Length == 0) return GameModeOptions.Default;
+
+        var defaults = GameModeOptions.Default;
+        return new GameModeOptions
+        {
+            ProcessNamesToSuspend = defaults.ProcessNamesToSuspend
+                .Concat(custom)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            ServiceNamesToStop = defaults.ServiceNamesToStop,
+        };
+    }
 
     /// <summary>Services arrêtés lors de l'activation.</summary>
     public string StoppedServicesList =>
@@ -68,7 +116,7 @@ public sealed class GameModeViewModel : ObservableObject
             }
             else
             {
-                var snap = await _gameMode.ActivateAsync(GameModeOptions.Default, CancellationToken.None);
+                var snap = await _gameMode.ActivateAsync(BuildOptions(), CancellationToken.None);
                 Status = $"Mode Jeu actif : {snap.SuspendedProcessIds.Count} application(s) suspendue(s).";
             }
         }

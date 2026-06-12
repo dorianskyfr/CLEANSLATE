@@ -22,10 +22,10 @@
                 <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
                 <TextBlock TextWrapping="Wrap" MaxWidth="700"
                            Style="{StaticResource MutedText}">
-                    Bloque les publicités, traqueurs et domaines malveillants pour
+                    Bloque les publicités, traqueurs et/ou domaines malveillants pour
                     <Bold>tous les navigateurs et toutes les applications</Bold> en basculant le DNS
-                    système vers AdGuard DNS (94.140.14.14 / 94.140.15.15). Léger et
-                    instantané — aucun fichier hosts modifié, aucun ralentissement.
+                    système vers le fournisseur filtrant de votre choix (AdGuard par défaut).
+                    Léger et instantané — aucun fichier hosts modifié, aucun ralentissement.
                     Nécessite des droits administrateur. Désactivation immédiate :
                     la configuration DNS d'origine est restaurée.
                 </TextBlock>
@@ -68,10 +68,21 @@
             </StackPanel>
         </Border>
 
-        <!-- Bouton -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
+        <!-- Choix du fournisseur DNS + bouton -->
+        <StackPanel Grid.Row="3" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Fournisseur :" Foreground="{DynamicResource TextBrush}"
+                           FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <ComboBox ItemsSource="{Binding Providers}"
+                          SelectedItem="{Binding SelectedProvider}"
+                          DisplayMemberPath="Name" Padding="8,6" MinWidth="220"
+                          IsEnabled="{Binding CanChooseProvider}" />
+            </StackPanel>
+            <TextBlock Text="{Binding ProviderDescription}" Style="{StaticResource MutedText}"
+                       Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" />
             <Button Content="{Binding ToggleLabel}"
-                    Style="{StaticResource AccentButton}"
+                    Style="{StaticResource AccentButton}" HorizontalAlignment="Left"
+                    Margin="0,12,0,0"
                     Command="{Binding ToggleCommand}" />
         </StackPanel>
 

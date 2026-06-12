@@ -8,7 +8,11 @@ namespace CleanSlate.App.ViewModels;
 /// <summary>Module 3 — Surveillance de la RAM en temps réel + optimisation avancée.</summary>
 public sealed class MemoryViewModel : ObservableObject
 {
+    /// <summary>Délai minimal entre deux optimisations automatiques.</summary>
+    private static readonly TimeSpan AutoOptimizeCooldown = TimeSpan.FromMinutes(10);
+
     private readonly IMemoryMonitor _monitor;
+    private readonly IAppSettingsService _settings;
     private readonly DispatcherTimer _timer;
 
     private string _totalDisplay     = "—";
@@ -17,15 +21,27 @@ public sealed class MemoryViewModel : ObservableObject
     private double _loadPercent;
     private string _lastResult       = string.Empty;
     private bool   _isBusy;
+    private bool   _autoOptimizeEnabled;
+    private int    _autoThreshold = 90;
+    private DateTime _lastAutoOptimize = DateTime.MinValue;
 
-    public MemoryViewModel(IMemoryMonitor monitor, IDialogService dialogs)
+    public MemoryViewModel(IMemoryMonitor monitor, IAppSettingsService settings, IDialogService dialogs)
     {
         _monitor = monitor;
+        _settings = settings;
+
+        var saved = settings.Load();
+        _autoOptimizeEnabled = saved.AutoMemoryOptimize;
+        _autoThreshold = Math.Clamp(saved.AutoMemoryOptimizeThreshold, 50, 99);
 
         OptimizeCommand = new AsyncRelayCommand(OptimizeAsync, () => !IsBusy);
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += (_, _) => Refresh();
+        _timer.Tick += async (_, _) =>
+        {
+            Refresh();
+            await MaybeAutoOptimizeAsync();
+        };
         _timer.Start();
         Refresh();
     }
@@ -44,11 +60,50 @@ public sealed class MemoryViewModel : ObservableObject
         private set { if (SetProperty(ref _isBusy, value)) OptimizeCommand.RaiseCanExecuteChanged(); }
     }
 
+    /// <summary>Optimisation automatique quand la charge mémoire dépasse le seuil (persisté).</summary>
+    public bool AutoOptimizeEnabled
+    {
+        get => _autoOptimizeEnabled;
+        set
+        {
+            if (SetProperty(ref _autoOptimizeEnabled, value))
+            {
+                OnPropertyChanged(nameof(AutoOptimizeLabel));
+                _settings.Save(_settings.Load() with { AutoMemoryOptimize = value });
+            }
+        }
+    }
+
+    public string AutoOptimizeLabel =>
+        $"Optimiser automatiquement quand la RAM dépasse {_autoThreshold} % " +
+        "(au plus une fois toutes les 10 minutes)";
+
     public string HonestNotice =>
         "L'optimisation compacte la mémoire des processus (working sets) et purge la " +
         "Standby List (mémoire en cache non utilisée), ce qui libère immédiatement de la " +
         "RAM physique — comme Wise Memory Optimizer. Idéal avant de lancer un jeu ou une " +
         "application gourmande. La purge de la Standby List requiert les droits administrateur.";
+
+    /// <summary>
+    /// Optimisation automatique : déclenchée par le timer d'affichage quand la charge
+    /// dépasse le seuil, avec un délai minimal entre deux passages (pas de spam).
+    /// </summary>
+    private async Task MaybeAutoOptimizeAsync()
+    {
+        if (!_autoOptimizeEnabled || IsBusy) return;
+        if (LoadPercent < _autoThreshold) return;
+        if (DateTime.UtcNow - _lastAutoOptimize < AutoOptimizeCooldown) return;
+
+        _lastAutoOptimize = DateTime.UtcNow;
+        IsBusy = true;
+        LastResult = $"RAM > {_autoThreshold} % — optimisation automatique en cours…";
+
+        var result = await Task.Run(() => _monitor.OptimizeMemory(clearStandbyList: true));
+
+        Refresh();
+        IsBusy = false;
+        LastResult = $"[Auto] {result.Message}";
+    }
 
     private void Refresh()
     {

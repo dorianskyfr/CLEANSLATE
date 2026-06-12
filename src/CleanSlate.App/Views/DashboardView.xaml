@@ -73,6 +73,10 @@
                                        FontWeight="SemiBold" FontSize="14" />
                         </StackPanel>
                     </UniformGrid>
+                    <!-- Conseil : redémarrage recommandé après une longue période sans reboot -->
+                    <TextBlock Text="{Binding UptimeHint}" Foreground="{DynamicResource AccentBrush}"
+                               FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Visibility="{Binding HasUptimeHint, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </Border>
 

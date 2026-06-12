@@ -24,6 +24,12 @@ public enum CleaningCategory
 
     /// <summary>Cache des miniatures (thumbcache). Régénéré automatiquement.</summary>
     Miniatures,
+
+    /// <summary>Caches de shaders DirectX/GPU (D3DSCache, NVIDIA, AMD). Régénérés au jeu.</summary>
+    CacheShaders,
+
+    /// <summary>Rapports d'erreurs Windows (WER). Données de diagnostic uniquement.</summary>
+    RapportsErreurs,
 }
 
 /// <summary>

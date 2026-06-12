@@ -9,6 +9,21 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.2 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• DLSS Enabler : le DLL est posé À CÔTÉ DE L'EXÉCUTABLE du jeu, localisé\n" +
+        "  automatiquement (sous-dossiers Binaries\\Win64, bin\\x64, Content…).\n" +
+        "• DLSS Enabler : vraie méthode Game Pass — test d'écriture, déverrouillage\n" +
+        "  automatique du dossier (admin) ou instructions précises (app Xbox).\n" +
+        "• Bloqueur de pub : choix du fournisseur DNS (AdGuard, AdGuard Family,\n" +
+        "  Cloudflare Security, Quad9).\n" +
+        "• RAM : optimisation automatique optionnelle au-delà de 90 % de charge.\n" +
+        "• Nettoyage : nouvelles catégories « Cache des shaders » et « Rapports\n" +
+        "  d'erreurs Windows ».\n" +
+        "• Mode Jeu : ajoutez vos propres applications à suspendre (mémorisées).\n" +
+        "• Accueil : conseil de redémarrage après 7 jours sans reboot.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.1.5 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• DLSS Enabler : le DLL officiel du mod est désormais intégré à CleanSlate\n" +
