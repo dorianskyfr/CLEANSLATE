@@ -1,3 +1,11 @@
+## v1.1.5
+
+### Nouveautés
+- 📦 **DLSS Enabler : DLL officiel intégré à CleanSlate** : le mod n'est plus téléchargé depuis GitHub à l'installation (le repo GitHub du projet étant souvent indisponible/instable) — le DLL officiel **DLSS Enabler 4.7.8.1** est désormais embarqué directement dans CleanSlate. L'installation copie ce fichier dans le dossier du jeu sous le **nom de proxy le plus sûr** (`winmm.dll`, `dbghelp.dll`, `version.dll` ou `dxgi.dll`, selon le premier nom libre — ou réutilisé s'il s'agit déjà d'une installation précédente de DLSS Enabler), et bascule automatiquement sur la **variante plugin ASI** (`plugins/dlss-enabler.asi`) si les quatre noms sont déjà occupés par un autre mod (ReShade, Special K…). Comme avant, aucun fichier d'un autre mod n'est jamais écrasé ou supprimé sans vérification de ses métadonnées.
+- 🎮 **Détection des jeux Xbox Game Pass** : la bibliothèque visuelle détecte désormais aussi les jeux installés via l'app Xbox (dossier `XboxGames` à la racine de chaque disque), avec un badge **« 🎮 Game Pass »** sur la jaquette. Un avertissement s'affiche pour ces jeux : Windows peut supprimer les DLL ajoutées lors d'une vérification d'intégrité du package ou d'une mise à jour — l'installation reste possible mais sa persistance n'est pas garantie.
+
+---
+
 ## v1.1.0
 
 ### Nouveautés

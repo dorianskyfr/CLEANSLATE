@@ -9,6 +9,18 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.1.5 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• DLSS Enabler : le DLL officiel du mod est désormais intégré à CleanSlate\n" +
+        "  (plus de téléchargement depuis GitHub). L'installation copie directement\n" +
+        "  le bon fichier dans le dossier du jeu, sous le nom de proxy le plus sûr\n" +
+        "  (winmm.dll, dbghelp.dll, version.dll ou dxgi.dll selon ce qui est libre),\n" +
+        "  ou en plugin ASI si tous ces noms sont déjà pris par un autre mod.\n" +
+        "• Détection des jeux installés via le Xbox Game Pass (dossier XboxGames),\n" +
+        "  avec badge « 🎮 Game Pass » et avertissement : Windows peut supprimer les\n" +
+        "  DLL ajoutées lors d'une vérification d'intégrité ou d'une mise à jour.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.1 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• DLSS Enabler : bibliothèque visuelle — les jeux détectés s'affichent\n" +

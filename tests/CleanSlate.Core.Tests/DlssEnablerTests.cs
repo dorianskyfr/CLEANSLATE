@@ -270,4 +270,98 @@ public class DlssEnablerTests
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
+
+    // ------------------------------------------------------------------
+    //  Installation depuis le DLL embarqué (choix du nom de proxy)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void EmbeddedVersion_RenvoieLaVersionDuDllEmbarque()
+    {
+        Assert.Equal("4.7.8.1", new DlssEnablerService().EmbeddedVersion);
+    }
+
+    [Fact]
+    public void ChooseProxyFileName_DossierVierge_RenvoieLePremierNomDeLaListe()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            Assert.Equal(DlssEnablerService.LoaderFiles[0], DlssEnablerService.ChooseProxyFileName(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ChooseProxyFileName_PremierNomPrisParAutreMod_RenvoieLeSuivantLibre()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            // Un autre mod (ex. ReShade) occupe déjà le premier nom de la liste.
+            File.WriteAllText(Path.Combine(dir, DlssEnablerService.LoaderFiles[0]), "reshade");
+
+            Assert.Equal(DlssEnablerService.LoaderFiles[1], DlssEnablerService.ChooseProxyFileName(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ChooseProxyFileName_TousLesNomsPrisParAutresMods_RenvoieNull()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            foreach (var loader in DlssEnablerService.LoaderFiles)
+                File.WriteAllText(Path.Combine(dir, loader), "autre mod");
+
+            Assert.Null(DlssEnablerService.ChooseProxyFileName(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public async Task InstallAsync_CopieLeDllEmbarqueSousLePremierNomLibre_EtDetecteLInstallation()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            var svc = new DlssEnablerService();
+            var ok = await svc.InstallAsync(dir, CancellationToken.None);
+
+            Assert.True(ok);
+            Assert.True(File.Exists(Path.Combine(dir, DlssEnablerService.LoaderFiles[0])));
+            Assert.True(svc.GetStatus(dir).Installed);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public async Task InstallAsync_TousLesProxyOccupes_PoseLePluginAsi()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            foreach (var loader in DlssEnablerService.LoaderFiles)
+                File.WriteAllText(Path.Combine(dir, loader), "autre mod");
+
+            var svc = new DlssEnablerService();
+            var ok = await svc.InstallAsync(dir, CancellationToken.None);
+
+            Assert.True(ok);
+            Assert.True(File.Exists(Path.Combine(dir, "plugins", "dlss-enabler.asi")));
+            // Les DLL des autres mods ne sont pas écrasées.
+            foreach (var loader in DlssEnablerService.LoaderFiles)
+                Assert.Equal("autre mod", File.ReadAllText(Path.Combine(dir, loader)));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public async Task InstallAsync_DossierInexistant_RenvoieFalse()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"cleanslate-dlss-test-{Guid.NewGuid():N}");
+        var ok = await new DlssEnablerService().InstallAsync(dir, CancellationToken.None);
+        Assert.False(ok);
+    }
 }

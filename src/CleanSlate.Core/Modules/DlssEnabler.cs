@@ -1,9 +1,7 @@
 using System.Diagnostics;
-using System.Net.Http;
-using System.Net.Http.Json;
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -29,13 +27,6 @@ public sealed record DlssEnablerStatus(
     IReadOnlyList<string> DetectedFiles,
     string? UninstallerPath);
 
-/// <summary>Dernière version du mod publiée sur GitHub.</summary>
-public sealed record DlssEnablerRelease(
-    string Version,
-    string InstallerName,
-    string DownloadUrl,
-    long SizeBytes);
-
 /// <summary>
 /// Gestion du mod « DLSS Enabler » (artur-graniszewski — github.com/artur-graniszewski/DLSS-Enabler,
 /// aussi distribué sur Nexus Mods, site/mods/757). Le mod simule DLSS Super Resolution et
@@ -44,30 +35,33 @@ public sealed record DlssEnablerRelease(
 /// nativement.
 ///
 /// CleanSlate joue ici le rôle d'un gestionnaire (comme « DLSS Enabler Manager ») :
-///  - détection des jeux installés (bibliothèques Steam et Epic Games + dossier manuel) ;
+///  - détection des jeux installés (bibliothèques Steam, Epic Games, Xbox Game Pass
+///    et dossiers manuels) ;
 ///  - détection de la présence du mod dans le dossier d'un jeu ;
-///  - installation : téléchargement de l'installateur officiel depuis GitHub puis
-///    exécution silencieuse (Inno Setup : /VERYSILENT /DIR="dossier du jeu") ;
+///  - installation : le DLL du mod est embarqué dans CleanSlate (aucun téléchargement),
+///    copié dans le dossier du jeu sous le nom de proxy le plus sûr (version.dll,
+///    winmm.dll, dbghelp.dll, dxgi.dll) ou, si tous ces noms sont déjà utilisés par
+///    un autre mod, sous forme de plugin ASI (plugins/dlss-enabler.asi) ;
 ///  - désinstallation : via le désinstallateur Inno laissé par le mod, ou à défaut
 ///    suppression des fichiers du mod (jamais les DLL d'autres mods, vérification
 ///    des métadonnées de version avant toute suppression de DLL « chargeur »).
 /// </summary>
 public interface IDlssEnablerService
 {
-    /// <summary>Détecte les jeux installés via Steam et Epic Games Launcher.</summary>
+    /// <summary>Version du mod DLSS Enabler embarquée dans CleanSlate.</summary>
+    string EmbeddedVersion { get; }
+
+    /// <summary>Détecte les jeux installés (Steam, Epic Games, Xbox Game Pass) + dossiers manuels.</summary>
     Task<IReadOnlyList<InstalledGame>> ScanGamesAsync(CancellationToken ct);
 
     /// <summary>Vérifie si DLSS Enabler est installé dans le dossier de jeu donné.</summary>
     DlssEnablerStatus GetStatus(string gameDir);
 
-    /// <summary>Interroge GitHub pour connaître la dernière version publiée du mod.</summary>
-    Task<DlssEnablerRelease?> GetLatestReleaseAsync(CancellationToken ct);
-
-    /// <summary>Télécharge l'installateur officiel dans un fichier temporaire.</summary>
-    Task<string> DownloadInstallerAsync(DlssEnablerRelease release, IProgress<double>? progress, CancellationToken ct);
-
-    /// <summary>Installe le mod dans le dossier du jeu (installation silencieuse).</summary>
-    Task<bool> InstallAsync(string installerPath, string gameDir, CancellationToken ct);
+    /// <summary>
+    /// Installe le mod dans le dossier du jeu à partir du DLL embarqué dans CleanSlate :
+    /// copié sous le nom de proxy le plus sûr pour ce jeu (cf. <see cref="DlssEnablerStatus"/>).
+    /// </summary>
+    Task<bool> InstallAsync(string gameDir, CancellationToken ct);
 
     /// <summary>Désinstalle le mod du dossier du jeu. Renvoie false si rien n'a pu être retiré.</summary>
     Task<bool> UninstallAsync(string gameDir, CancellationToken ct);
@@ -76,8 +70,13 @@ public interface IDlssEnablerService
 [SupportedOSPlatform("windows")]
 public sealed class DlssEnablerService : IDlssEnablerService
 {
-    private const string Owner = "artur-graniszewski";
-    private const string Repo  = "DLSS-Enabler";
+    /// <summary>Version du mod DLSS Enabler embarquée dans CleanSlate (DLL intégré aux ressources).</summary>
+    public const string EmbeddedDllVersion = "4.7.8.1";
+
+    /// <summary>Nom de la ressource embarquée contenant le DLL officiel de DLSS Enabler.</summary>
+    private const string EmbeddedResourceName = "CleanSlate.Core.Assets.dlss-enabler.dll";
+
+    public string EmbeddedVersion => EmbeddedDllVersion;
 
     /// <summary>
     /// Fichiers propres à DLSS Enabler : leur présence suffit à considérer le mod installé,
@@ -94,14 +93,15 @@ public sealed class DlssEnablerService : IDlssEnablerService
     };
 
     /// <summary>
-    /// DLL « chargeurs » génériques que l'installateur peut poser (le mod renommé en
-    /// version.dll, winmm.dll…). D'autres mods (ReShade, etc.) utilisent les mêmes noms :
-    /// elles ne comptent PAS comme preuve d'installation et ne sont supprimées que si
-    /// leurs métadonnées de version mentionnent DLSS Enabler.
+    /// Noms de proxy DLL utilisables pour injecter DLSS Enabler, par ordre de préférence
+    /// (les premiers sont rarement utilisés par d'autres mods comme ReShade, qui privilégie
+    /// dxgi.dll/d3d11.dll/d3d9.dll/opengl32.dll). D'autres mods peuvent utiliser les mêmes
+    /// noms : leur présence ne compte comme preuve d'installation de DLSS Enabler — et n'est
+    /// supprimée — que si leurs métadonnées de version le confirment.
     /// </summary>
     internal static readonly string[] LoaderFiles =
     {
-        "version.dll", "winmm.dll", "dbghelp.dll", "dxgi.dll",
+        "winmm.dll", "dbghelp.dll", "version.dll", "dxgi.dll",
     };
 
     // ------------------------------------------------------------------
@@ -113,6 +113,7 @@ public sealed class DlssEnablerService : IDlssEnablerService
         var games = new List<InstalledGame>();
         try { games.AddRange(ScanSteamGames()); } catch { }
         try { games.AddRange(ScanEpicGames()); }  catch { }
+        try { games.AddRange(ScanGamePassGames()); } catch { }
         ct.ThrowIfCancellationRequested();
 
         IReadOnlyList<InstalledGame> result = games
@@ -273,6 +274,37 @@ public sealed class DlssEnablerService : IDlssEnablerService
         return (name, dir);
     }
 
+    /// <summary>
+    /// Détecte les jeux installés via l'app Xbox / Xbox Game Pass : ces jeux sont posés
+    /// dans un dossier « XboxGames » à la racine de chaque disque, un sous-dossier par
+    /// jeu contenant lui-même un dossier « Content » avec l'exécutable.
+    /// </summary>
+    private static IEnumerable<InstalledGame> ScanGamePassGames()
+    {
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            if (drive.DriveType != DriveType.Fixed) continue;
+
+            string xboxGames;
+            try
+            {
+                if (!drive.IsReady) continue;
+                xboxGames = Path.Combine(drive.RootDirectory.FullName, "XboxGames");
+                if (!Directory.Exists(xboxGames)) continue;
+            }
+            catch { continue; }
+
+            foreach (var dir in Directory.EnumerateDirectories(xboxGames))
+            {
+                var name = Path.GetFileName(dir.TrimEnd('\\', '/'));
+                if (string.IsNullOrEmpty(name)) continue;
+
+                var content = Path.Combine(dir, "Content");
+                yield return new InstalledGame(name, Directory.Exists(content) ? content : dir, "Xbox Game Pass");
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     //  Détection de l'état du mod
     // ------------------------------------------------------------------
@@ -293,19 +325,17 @@ public sealed class DlssEnablerService : IDlssEnablerService
         if (File.Exists(asiPlugin))
             detected.Add(@"plugins\dlss-enabler.asi");
 
-        bool installed = detected.Count > 0;
-        if (installed)
+        // Un DLL « chargeur » (version.dll, dxgi.dll…) ne compte comme preuve d'installation
+        // que si ses métadonnées de version confirment qu'il appartient à DLSS Enabler —
+        // jamais celles d'un autre mod (ReShade, Special K…).
+        foreach (var loader in LoaderFiles)
         {
-            // Les chargeurs ne sont listés que si le mod est avéré (sinon ils
-            // appartiennent probablement à un autre mod : ReShade, etc.).
-            foreach (var loader in LoaderFiles)
-            {
-                var path = Path.Combine(gameDir, loader);
-                if (File.Exists(path) && IsDlssEnablerBinary(path))
-                    detected.Add(loader);
-            }
+            var path = Path.Combine(gameDir, loader);
+            if (File.Exists(path) && IsDlssEnablerBinary(path))
+                detected.Add(loader);
         }
 
+        bool installed = detected.Count > 0;
         return new DlssEnablerStatus(installed, detected, FindUninstaller(gameDir));
     }
 
@@ -341,78 +371,79 @@ public sealed class DlssEnablerService : IDlssEnablerService
     }
 
     // ------------------------------------------------------------------
-    //  Téléchargement / installation / désinstallation
+    //  Installation / désinstallation (DLL embarqué, aucun téléchargement)
     // ------------------------------------------------------------------
 
-    public async Task<DlssEnablerRelease?> GetLatestReleaseAsync(CancellationToken ct)
+    /// <summary>
+    /// Installe le mod : extrait le DLL officiel embarqué dans CleanSlate et le copie
+    /// dans le dossier du jeu sous le nom de proxy choisi par <see cref="ChooseProxyFileName"/>
+    /// (ou en variante plugin ASI si tous les noms de proxy sont déjà pris par un autre mod).
+    /// </summary>
+    public async Task<bool> InstallAsync(string gameDir, CancellationToken ct)
     {
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-DlssEnabler");
-        http.Timeout = TimeSpan.FromSeconds(20);
+        if (!Directory.Exists(gameDir)) return false;
 
-        var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
-        var release = await http.GetFromJsonAsync<GitHubRelease>(url, ct).ConfigureAwait(false);
-        if (release is null) return null;
+        byte[] dll;
+        try { dll = ReadEmbeddedDll(); }
+        catch { return false; }
 
-        // L'installateur officiel s'appelle « dlss-enabler-setup-<version>.exe ».
-        var asset = release.Assets?.FirstOrDefault(a =>
-                a.Name?.StartsWith("dlss-enabler-setup", StringComparison.OrdinalIgnoreCase) == true &&
-                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            ?? release.Assets?.FirstOrDefault(a =>
-                a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true);
-        if (asset?.BrowserDownloadUrl is null || asset.Name is null) return null;
+        var proxyName = ChooseProxyFileName(gameDir);
+        try
+        {
+            if (proxyName is not null)
+            {
+                await File.WriteAllBytesAsync(Path.Combine(gameDir, proxyName), dll, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                // Tous les noms de proxy DLL sont déjà occupés par un autre mod : on pose
+                // le mod sous forme de plugin ASI (nécessite un loader ASI, généralement
+                // déjà présent dans les jeux fortement moddés qui occupent ces DLL).
+                var pluginsDir = Path.Combine(gameDir, "plugins");
+                Directory.CreateDirectory(pluginsDir);
+                await File.WriteAllBytesAsync(Path.Combine(pluginsDir, "dlss-enabler.asi"), dll, ct).ConfigureAwait(false);
+            }
+        }
+        catch { return false; }
 
-        return new DlssEnablerRelease(
-            Version:       release.TagName?.TrimStart('v') ?? "?",
-            InstallerName: asset.Name,
-            DownloadUrl:   asset.BrowserDownloadUrl,
-            SizeBytes:     asset.Size);
+        return GetStatus(gameDir).Installed;
     }
 
-    public async Task<string> DownloadInstallerAsync(
-        DlssEnablerRelease release, IProgress<double>? progress, CancellationToken ct)
+    /// <summary>Lit le DLL officiel de DLSS Enabler embarqué dans les ressources de CleanSlate.</summary>
+    private static byte[] ReadEmbeddedDll()
     {
-        var dest = Path.Combine(Path.GetTempPath(), release.InstallerName);
+        var assembly = typeof(DlssEnablerService).Assembly;
+        using var stream = assembly.GetManifestResourceStream(EmbeddedResourceName)
+            ?? throw new InvalidOperationException($"Ressource embarquée introuvable : {EmbeddedResourceName}");
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms.ToArray();
+    }
 
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-DlssEnabler");
-
-        using var response = await http.GetAsync(
-            release.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-
-        var total = response.Content.Headers.ContentLength ?? release.SizeBytes;
-        await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        await using var file = File.Create(dest);
-
-        var buffer = new byte[81920];
-        long downloaded = 0;
-        int read;
-        while ((read = await stream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+    /// <summary>
+    /// Choisit le nom de proxy DLL à utiliser dans <paramref name="gameDir"/> :
+    ///  - si DLSS Enabler y est déjà installé sous l'un des noms de <see cref="LoaderFiles"/>,
+    ///    on réutilise ce nom (réinstallation / mise à jour) ;
+    ///  - sinon, le premier nom libre dans <see cref="LoaderFiles"/> ;
+    ///  - si tous sont déjà occupés par un autre mod (ReShade, Special K…), renvoie null
+    ///    pour basculer sur la variante plugin ASI.
+    /// </summary>
+    internal static string? ChooseProxyFileName(string gameDir)
+    {
+        foreach (var loader in LoaderFiles)
         {
-            await file.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
-            downloaded += read;
-            if (total > 0) progress?.Report((double)downloaded / total * 100);
+            var path = Path.Combine(gameDir, loader);
+            if (File.Exists(path) && IsDlssEnablerBinary(path))
+                return loader;
         }
 
-        return dest;
-    }
-
-    public async Task<bool> InstallAsync(string installerPath, string gameDir, CancellationToken ct)
-    {
-        if (!File.Exists(installerPath) || !Directory.Exists(gameDir)) return false;
-
-        // Installation silencieuse Inno Setup directement dans le dossier du jeu.
-        var psi = new ProcessStartInfo(installerPath,
-            $"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=\"{gameDir}\"")
+        foreach (var loader in LoaderFiles)
         {
-            UseShellExecute = true, // l'installateur peut demander l'élévation UAC
-        };
-        using var process = Process.Start(psi);
-        if (process is null) return false;
+            if (!File.Exists(Path.Combine(gameDir, loader)))
+                return loader;
+        }
 
-        await process.WaitForExitAsync(ct).ConfigureAwait(false);
-        return process.ExitCode == 0 && GetStatus(gameDir).Installed;
+        return null;
     }
 
     public async Task<bool> UninstallAsync(string gameDir, CancellationToken ct)
@@ -468,26 +499,5 @@ public sealed class DlssEnablerService : IDlssEnablerService
             return true;
         }
         catch { return false; }
-    }
-
-    private sealed class GitHubRelease
-    {
-        [JsonPropertyName("tag_name")]
-        public string? TagName { get; set; }
-
-        [JsonPropertyName("assets")]
-        public List<GitHubAsset>? Assets { get; set; }
-    }
-
-    private sealed class GitHubAsset
-    {
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
-
-        [JsonPropertyName("size")]
-        public long Size { get; set; }
-
-        [JsonPropertyName("browser_download_url")]
-        public string? BrowserDownloadUrl { get; set; }
     }
 }

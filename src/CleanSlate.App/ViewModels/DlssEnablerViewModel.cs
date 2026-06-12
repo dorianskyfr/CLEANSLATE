@@ -30,6 +30,10 @@ public sealed class GameTile : ObservableObject
     public string InstallDir => Game.InstallDir;
     public string? CoverImage => Game.CoverImage;
 
+    /// <summary>Jeu installé via le Xbox Game Pass : l'installation du mod peut être bloquée
+    /// ou effacée par la vérification d'intégrité du package (badge d'avertissement).</summary>
+    public bool IsGamePass => Game.Source == "Xbox Game Pass";
+
     /// <summary>Initiale affichée sur la tuile de remplacement quand il n'y a pas de jaquette.</summary>
     public string Initial => string.IsNullOrEmpty(Game.Name)
         ? "?"
@@ -162,11 +166,12 @@ public sealed class DlssEnablerViewModel : ObservableObject
         "DLSS Enabler est un mod open-source (artur-graniszewski) qui simule DLSS " +
         "Super Resolution et Frame Generation — y compris le Multi Frame Generation " +
         "(x2/x3/x4, façon DLSS 4) — sur n'importe quel GPU DirectX 12, dans les jeux " +
-        "qui prennent en charge DLSS2/DLSS3 nativement. CleanSlate télécharge " +
-        "l'installateur OFFICIEL depuis GitHub et le pose dans le dossier du jeu choisi " +
-        "(quelques DLL), avec désinstallation propre en un clic. ⚠️ N'utilisez JAMAIS " +
-        "ce mod dans un jeu multijoueur protégé par un anticheat : l'injection de DLL " +
-        "peut entraîner un bannissement. Réservez-le aux jeux solo.";
+        "qui prennent en charge DLSS2/DLSS3 nativement. Le DLL OFFICIEL du mod est " +
+        $"intégré à CleanSlate (v{_service.EmbeddedVersion}, aucun téléchargement) : il est " +
+        "copié dans le dossier du jeu choisi sous le nom de proxy le plus sûr (ou en " +
+        "plugin ASI si nécessaire), avec désinstallation propre en un clic. ⚠️ N'utilisez " +
+        "JAMAIS ce mod dans un jeu multijoueur protégé par un anticheat : l'injection de " +
+        "DLL peut entraîner un bannissement. Réservez-le aux jeux solo.";
 
     /// <summary>
     /// Lance la première détection automatiquement (appelé au chargement de la vue) :
@@ -313,47 +318,43 @@ public sealed class DlssEnablerViewModel : ObservableObject
         if (_selectedTile is null) return;
         var game = _selectedTile.Game;
 
+        var gamePassWarning = _selectedTile.IsGamePass
+            ? "\n\n⚠️ Ce jeu vient du Xbox Game Pass : Windows vérifie parfois l'intégrité des " +
+              "fichiers du jeu et peut SUPPRIMER les DLL ajoutées (notamment lors d'une mise à " +
+              "jour ou d'une réparation). L'installation peut ne pas fonctionner ou disparaître " +
+              "après coup — sans risque pour le jeu, mais sans garantie de persistance."
+            : string.Empty;
+
         var confirmed = _dialogs.Confirm("Installer DLSS Enabler",
             $"Installer le mod DLSS Enabler dans :\n{game.InstallDir}\n\n" +
             "⚠️ Rappel : uniquement pour les jeux SOLO. Dans un jeu multijoueur protégé " +
-            "par un anticheat, ce mod peut entraîner un bannissement.\n\nContinuer ?");
+            "par un anticheat, ce mod peut entraîner un bannissement." + gamePassWarning +
+            "\n\nContinuer ?");
         if (!confirmed) return;
 
         IsBusy = true;
+        Status = "Installation du mod (fichiers intégrés à CleanSlate)…";
         try
         {
-            Status = "Recherche de la dernière version sur GitHub…";
-            var release = await _service.GetLatestReleaseAsync(CancellationToken.None);
-            if (release is null)
-            {
-                Status = string.Empty;
-                _dialogs.Warn("DLSS Enabler", "Impossible de récupérer la dernière version sur GitHub.");
-                return;
-            }
-
-            Status = $"Téléchargement de {release.InstallerName}…";
-            var progress = new Progress<double>(p => Status = $"Téléchargement : {p:0}%…");
-            var installer = await _service.DownloadInstallerAsync(release, progress, CancellationToken.None);
-
-            Status = "Installation silencieuse dans le dossier du jeu…";
-            var ok = await _service.InstallAsync(installer, game.InstallDir, CancellationToken.None);
+            var ok = await _service.InstallAsync(game.InstallDir, CancellationToken.None);
 
             RefreshStatus();
             if (ok)
             {
-                Status = $"DLSS Enabler v{release.Version} installé dans « {game.Name} ».";
+                Status = $"DLSS Enabler v{_service.EmbeddedVersion} installé dans « {game.Name} ».";
                 _dialogs.Info("DLSS Enabler",
-                    $"DLSS Enabler v{release.Version} est installé.\n\n" +
-                    "Lancez le jeu puis activez DLSS (Super Resolution / Frame Generation) " +
-                    "dans ses options graphiques. Si le jeu est très moddé, consultez la page " +
-                    "du projet pour les variantes d'installation.");
+                    $"DLSS Enabler v{_service.EmbeddedVersion} est installé dans « {game.Name} ».\n\n" +
+                    "Lancez le jeu puis activez DLSS (Super Resolution / Frame Generation, y compris " +
+                    "le Multi Frame Generation) dans son overlay (Maj+F3 par défaut) ou ses options " +
+                    "graphiques.");
             }
             else
             {
                 Status = string.Empty;
                 _dialogs.Warn("DLSS Enabler",
-                    "L'installation ne s'est pas terminée correctement. " +
-                    "Réessayez, ou installez manuellement depuis la page du projet.");
+                    "L'installation n'a pas pu copier les fichiers du mod dans ce dossier. " +
+                    "Vérifiez que le jeu n'est pas en cours d'exécution et que vous avez les " +
+                    "droits d'écriture sur son dossier.");
             }
         }
         catch (Exception ex)
