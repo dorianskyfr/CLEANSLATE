@@ -609,6 +609,21 @@ public sealed class DlssEnablerService : IDlssEnablerService
     {
         "nvngx_dlss.dll", "nvngx_dlssg.dll", "nvngx_dlssd.dll",
         "sl.interposer.dll", "sl.dlss.dll", "sl.dlss_g.dll", "sl.common.dll",
+        "sl.reflex.dll", "sl.pcl.dll", "sl.nis.dll",
+    };
+
+    /// <summary>
+    /// Sous-dossiers à ignorer pendant la recherche de composants DLSS/FSR/XeSS : contenus
+    /// « cuits » (assets, paks, vidéos, sauvegardes…) qui ne contiennent jamais de DLL de
+    /// plugin et qui peuvent représenter l'essentiel du poids d'un jeu (donc très lents à
+    /// parcourir). Les DLL Streamline/DLSS se trouvent typiquement sous
+    /// Plugins\...\Binaries\ThirdParty\Win64 (Unreal Engine) ou &lt;Jeu&gt;_Data\Plugins\x86_64
+    /// (Unity), jamais sous ces dossiers.
+    /// </summary>
+    private static readonly string[] MarkerSkipDirNames =
+    {
+        "Content", "Paks", "Movies", "Saved", "DerivedDataCache", "Intermediate",
+        "Source", "Config", "Localization", "Shaders",
     };
 
     /// <summary>Upscalers FSR / XeSS : DLSS Enabler peut s'appuyer dessus, sans garantie.</summary>
@@ -625,7 +640,7 @@ public sealed class DlssEnablerService : IDlssEnablerService
             return new DlssCompatibilityInfo(DlssCompatibility.Unlikely, Array.Empty<string>(),
                 "Dossier introuvable.");
 
-        var found = FindMarkers(gameDir, DlssMarkers.Concat(OtherUpscalerMarkers).ToArray(), maxDepth: 4);
+        var found = FindMarkers(gameDir, DlssMarkers.Concat(OtherUpscalerMarkers).ToArray(), maxDepth: 8);
 
         var dlss  = found.Where(f => DlssMarkers.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)).ToList();
         var other = found.Where(f => OtherUpscalerMarkers.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)).ToList();
@@ -644,12 +659,19 @@ public sealed class DlssEnablerService : IDlssEnablerService
                 "aider (Frame Generation via FSR3), sans garantie. À tester.");
 
         return new DlssCompatibilityInfo(DlssCompatibility.Unlikely, evidence,
-            "⚠️ Aucun composant DLSS/FSR/XeSS détecté : ce jeu ne supporte probablement pas le DLSS. " +
-            "DLSS Enabler n'ajoute pas le DLSS à un jeu qui n'en a pas — l'installer ici n'aura sans " +
-            "doute AUCUN effet.");
+            "ℹ️ Aucun composant DLSS/FSR/XeSS connu n'a été trouvé dans les dossiers du jeu. " +
+            "Cette vérification automatique a ses limites (certains jeux rangent ces fichiers " +
+            "ailleurs ou ne les installent qu'au premier lancement) : ce n'est donc pas une " +
+            "certitude. Mais si ce jeu ne supporte vraiment aucun upscaler, DLSS Enabler n'ajoutera " +
+            "pas le DLSS à partir de rien — son installation n'aura alors aucun effet. " +
+            "L'installation reste sans risque et réversible (désinstallation en un clic).");
     }
 
-    /// <summary>Cherche des fichiers cibles (par nom) dans un dossier, en profondeur bornée.</summary>
+    /// <summary>
+    /// Cherche des fichiers cibles (par nom) dans un dossier, en profondeur bornée, en
+    /// ignorant les sous-dossiers de <see cref="MarkerSkipDirNames"/> (contenus cuits,
+    /// jamais de DLL de plugin, souvent énormes).
+    /// </summary>
     private static List<string> FindMarkers(string root, string[] names, int maxDepth)
     {
         var hits = new List<string>();
@@ -670,7 +692,12 @@ public sealed class DlssEnablerService : IDlssEnablerService
             try { subs = Directory.EnumerateDirectories(dir); }
             catch { return; }
             foreach (var sub in subs)
+            {
+                var name = Path.GetFileName(sub);
+                if (MarkerSkipDirNames.Any(s => string.Equals(s, name, StringComparison.OrdinalIgnoreCase)))
+                    continue;
                 Walk(sub, depth + 1);
+            }
         }
 
         Walk(root, 0);

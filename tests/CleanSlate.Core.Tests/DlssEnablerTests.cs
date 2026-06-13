@@ -603,4 +603,48 @@ public class DlssEnablerTests
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
+
+    /// <summary>
+    /// Reproduction du cas Subnautica 2 (Unreal Engine 5) : le composant Streamline est
+    /// rangé sous &lt;Jeu&gt;\Plugins\StreamlineCore\Binaries\ThirdParty\Win64, soit 6 niveaux
+    /// sous la racine — au-delà de l'ancienne profondeur de recherche (4).
+    /// </summary>
+    [Fact]
+    public void GetCompatibility_DllProfondementImbrique_EstTrouve()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            var sub = Path.Combine(dir, "Subnautica2", "Plugins", "StreamlineCore", "Binaries", "ThirdParty", "Win64");
+            Directory.CreateDirectory(sub);
+            File.WriteAllText(Path.Combine(sub, "sl.interposer.dll"), "x");
+
+            var info = new DlssEnablerService().GetCompatibility(dir);
+
+            Assert.Equal(DlssCompatibility.Compatible, info.Level);
+            Assert.Contains("sl.interposer.dll", info.Evidence);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    /// <summary>
+    /// Les DLL situées dans des dossiers de contenu « cuit » (Content, Paks…) ne sont pas
+    /// recherchées : ce ne sont jamais des plugins, et ces dossiers peuvent être énormes.
+    /// </summary>
+    [Fact]
+    public void GetCompatibility_DllDansContentIgnore()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            var sub = Path.Combine(dir, "Subnautica2", "Content", "Movies");
+            Directory.CreateDirectory(sub);
+            File.WriteAllText(Path.Combine(sub, "nvngx_dlss.dll"), "x");
+
+            var info = new DlssEnablerService().GetCompatibility(dir);
+
+            Assert.Equal(DlssCompatibility.Unlikely, info.Level);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
 }

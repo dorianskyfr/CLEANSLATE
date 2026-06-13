@@ -1,3 +1,11 @@
+## v1.2.7
+
+### Corrections
+- 🐛 **DLSS Enabler — compatibilité : faux négatifs corrigés** : la vérification de compatibilité ajoutée en v1.2.6 ne cherchait les composants DLSS/Streamline/FSR/XeSS que jusqu'à 4 sous-dossiers de profondeur, alors que les jeux Unreal Engine 5 récents (ex. Subnautica 2) les rangent typiquement sous `Plugins\StreamlineCore\Binaries\ThirdParty\Win64`, soit 6 niveaux. La recherche va maintenant jusqu'à 8 niveaux (en ignorant les gros dossiers de contenu cuit comme `Content`/`Paks`/`Movies` pour rester rapide), et reconnaît aussi `sl.reflex.dll`, `sl.pcl.dll` et `sl.nis.dll` comme indices Streamline supplémentaires.
+- 📝 **Message « improbable » reformulé** : quand aucun composant n'est trouvé, CleanSlate précise désormais que cette vérification automatique a ses limites et n'est pas une certitude, plutôt que d'affirmer que le jeu « ne supporte probablement pas le DLSS ». L'installation reste possible, sans risque et réversible.
+
+---
+
 ## v1.2.6
 
 ### Nouveautés
