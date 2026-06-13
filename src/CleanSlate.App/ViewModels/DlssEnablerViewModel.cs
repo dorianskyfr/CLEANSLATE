@@ -193,7 +193,7 @@ public sealed class DlssEnablerViewModel : ObservableObject
     public string HonestNotice =>
         "DLSS Enabler est un mod open-source (artur-graniszewski) qui simule DLSS " +
         "Super Resolution et Frame Generation — y compris le Multi Frame Generation " +
-        "(x2/x3/x4, façon DLSS 4) — sur n'importe quel GPU DirectX 12, dans les jeux " +
+        "(x2 à x6, façon DLSS 4.5) — sur n'importe quel GPU DirectX 12, dans les jeux " +
         "qui prennent en charge DLSS2/DLSS3 nativement. Le DLL OFFICIEL du mod est " +
         $"intégré à CleanSlate (v{_service.EmbeddedVersion}, aucun téléchargement) : il est " +
         "copié À CÔTÉ DE L'EXÉCUTABLE du jeu (localisé automatiquement, même dans les " +
@@ -416,8 +416,9 @@ public sealed class DlssEnablerViewModel : ObservableObject
                     $"Fichier posé : {result.InstalledFile}\nÀ côté de l'exécutable, dans :\n{result.TargetDir}\n\n" +
                     "Lancez le jeu, puis ouvrez l'overlay du mod (Fin / End par défaut) pour activer le " +
                     "DLSS Super Resolution et la Frame Generation. Le multiplicateur de Multi Frame " +
-                    "Generation (x2 / x3 / x4) se choisit dans cet overlay — x4 est le maximum du Multi " +
-                    "Frame Generation (DLSS 4 / Streamline). Activez aussi le DLSS dans les options " +
+                    "Generation (x2 à x6) se choisit dans cet overlay — x5 et x6 (DLSS 4.5) nécessitent " +
+                    "des fichiers Streamline récents (2.11+) dans le jeu et un framerate de base d'au " +
+                    "moins 40-50 FPS pour rester fluide. Activez aussi le DLSS dans les options " +
                     "graphiques du jeu.");
             }
             else if (result.Failure == DlssInstallFailure.WriteDenied && _selectedTile.IsGamePass)

@@ -6,7 +6,7 @@
 - 🖼️ **Jaquettes pour tous** : les jeux sans image (Epic, Game Pass, dossiers manuels) récupèrent maintenant leur jaquette via une recherche par nom sur Steam — beaucoup plus de jeux affichent leur visuel (best-effort, en tâche de fond).
 
 ### Améliorations
-- 🎯 **DLSS Enabler** : après installation, le message explique comment ouvrir l'overlay du mod et régler le **Multi Frame Generation (x2/x3/x4)** — x4 étant le maximum du Multi Frame Generation (DLSS 4 / dernier Streamline).
+- 🎯 **DLSS Enabler — Multi Frame Generation jusqu'à x6** : prise en charge du **MFG x5 et x6** introduit par DLSS 4.5 (DLSS Enabler 4.5.3+, sur n'importe quel GPU DX12). Après installation, le message explique comment choisir le multiplicateur (x2 à x6) dans l'overlay du mod, et précise les conditions du x5/x6 : fichiers **Streamline 2.11+** dans le jeu et un framerate de base d'au moins ~40-50 FPS pour rester fluide.
 - ✅ Vérifications : tout le pipeline (détection, compatibilité, installation à côté de l'exe, désinstallation) est couvert par de nouveaux tests automatisés.
 
 ---

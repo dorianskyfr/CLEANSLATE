@@ -86,7 +86,7 @@ public sealed record DlssCompatibilityInfo(
 /// <summary>
 /// Gestion du mod « DLSS Enabler » (artur-graniszewski — github.com/artur-graniszewski/DLSS-Enabler,
 /// aussi distribué sur Nexus Mods, site/mods/757). Le mod simule DLSS Super Resolution et
-/// DLSS Frame Generation — y compris le Multi Frame Generation (x2/x3/x4, façon DLSS 4) —
+/// DLSS Frame Generation — y compris le Multi Frame Generation (x2 à x6, façon DLSS 4.5) —
 /// sur n'importe quel GPU DirectX 12, dans les jeux qui prennent en charge DLSS2/DLSS3
 /// nativement.
 ///
@@ -636,7 +636,7 @@ public sealed class DlssEnablerService : IDlssEnablerService
         if (dlss.Count > 0)
             return new DlssCompatibilityInfo(DlssCompatibility.Compatible, evidence,
                 "✅ Ce jeu supporte DLSS nativement : DLSS Enabler pourra activer le DLSS et la " +
-                "Frame Generation (y compris le Multi Frame Generation jusqu'à x4).");
+                "Frame Generation (y compris le Multi Frame Generation jusqu'à x6, DLSS 4.5).");
 
         if (other.Count > 0)
             return new DlssCompatibilityInfo(DlssCompatibility.Maybe, evidence,

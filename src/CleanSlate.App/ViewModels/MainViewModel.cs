@@ -19,7 +19,7 @@ public sealed class MainViewModel : ObservableObject
         "• Jaquettes : les jeux sans image (Epic, Game Pass, manuels) récupèrent\n" +
         "  leur visuel via une recherche par nom sur Steam.\n" +
         "• Aide post-install : comment régler le Multi Frame Generation\n" +
-        "  (x2/x3/x4) dans l'overlay du mod.\n\n" +
+        "  (x2 à x6, DLSS 4.5) dans l'overlay du mod.\n\n" +
 
         "─────────────────────────────\n" +
         "v1.2.5 (2026-06)\n" +
