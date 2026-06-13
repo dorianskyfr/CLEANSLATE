@@ -40,7 +40,18 @@ public sealed record OverclockProfile(
     string Rationale,
     IReadOnlyList<string> Steps,
     bool Actionable,
-    bool IsDefault);
+    bool IsDefault,
+    bool IsCustom = false);
+
+/// <summary>
+/// Bornes de réglage pour le mode « Personnalisé » : intervalles autorisés (sûrs) que
+/// l'utilisateur ne peut pas dépasser via les curseurs. Adaptées à la marque du GPU.
+/// </summary>
+public sealed record OverclockLimits(
+    int CoreMinMhz,  int CoreMaxMhz,
+    int MemMinMhz,   int MemMaxMhz,
+    int PowerMinPct, int PowerMaxPct,
+    int TempMinC,    int TempMaxC);
 
 /// <summary>
 /// Module Overclocking (sous-catégorie du Mode Jeu).
@@ -62,6 +73,12 @@ public interface IOverclockingAdvisor
     /// <summary>Calcule les profils d'overclock proposés pour une carte donnée.</summary>
     /// <param name="canAutoApply">Vrai si CleanSlate peut appliquer l'overclock lui-même (NVIDIA ou AMD dédié, via NVAPI/ADL).</param>
     IReadOnlyList<OverclockProfile> RecommendProfiles(GpuInfo gpu, bool canAutoApply);
+
+    /// <summary>
+    /// Bornes (sûres) du mode « Personnalisé » pour cette carte, adaptées à la marque.
+    /// Renvoie null si le réglage manuel n'a pas de sens (iGPU non réglable, Intel boost).
+    /// </summary>
+    OverclockLimits? GetCustomLimits(GpuInfo gpu);
 }
 
 [SupportedOSPlatform("windows")]
@@ -130,11 +147,71 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
 
         return gpu.Vendor switch
         {
-            GpuVendor.Nvidia => BuildNvidiaProfiles(gpu, canAutoApply),
-            GpuVendor.Amd    => BuildAmdProfiles(gpu, canAutoApply),
+            GpuVendor.Nvidia => WithCustom(BuildNvidiaProfiles(gpu, canAutoApply), canAutoApply),
+            GpuVendor.Amd    => WithCustom(BuildAmdProfiles(gpu, canAutoApply), canAutoApply),
             GpuVendor.Intel  => BuildIntelBoostProfiles(gpu, integrated: false),
-            _                => BuildGenericProfiles(gpu),
+            _                => WithCustom(BuildGenericProfiles(gpu), canAutoApply: false),
         };
+    }
+
+    public OverclockLimits? GetCustomLimits(GpuInfo gpu)
+    {
+        if (gpu.IsIntegrated) return null;
+        return gpu.Vendor switch
+        {
+            // Cœur : on autorise un léger underclock (valeurs négatives) jusqu'à un OC franc.
+            GpuVendor.Nvidia => new OverclockLimits(-200, 300, -1000, 1500, 70, 120, 60, 90),
+            GpuVendor.Amd    => new OverclockLimits(-200, 200,  -500,  300, 80, 120, 60, 95),
+            GpuVendor.Intel  => null, // réglage via curseur boost % (pas d'offset MHz)
+            _                => new OverclockLimits(-100, 150,  -300,  400, 90, 115, 60, 90),
+        };
+    }
+
+    /// <summary>
+    /// Ajoute un profil « Personnalisé » éditable en fin de liste, initialisé sur les
+    /// valeurs du profil par défaut (« Équilibré ») comme point de départ raisonnable.
+    /// </summary>
+    private static IReadOnlyList<OverclockProfile> WithCustom(
+        IReadOnlyList<OverclockProfile> profiles, bool canAutoApply)
+    {
+        var basis = profiles.FirstOrDefault(p => p.IsDefault) ?? profiles[0];
+
+        var steps = canAutoApply
+            ? new[]
+              {
+                  "Réglez les curseurs (cœur, mémoire, limite de puissance) à votre convenance, " +
+                  "par petits paliers.",
+                  "Cliquez sur « Appliquer l'overclock » : CleanSlate pose VOS valeurs directement " +
+                  "(NVAPI / ADL, aucun logiciel tiers).",
+                  "Lancez un test de stabilité (benchmark ou jeu exigeant) 20-30 min en surveillant " +
+                  "température et artefacts.",
+                  "Instable (artefacts, écran noir, crash) ? Cliquez sur « Reset » pour tout annuler " +
+                  "immédiatement, puis baissez les offsets.",
+              }
+            : new[]
+              {
+                  "Réglez les curseurs à votre convenance, puis « Copier le profil ».",
+                  "Reportez les valeurs dans l'outil d'overclocking de votre constructeur, validez.",
+                  "Lancez un test de stabilité 20-30 min ; en cas d'instabilité, réduisez les offsets.",
+              };
+
+        var custom = new OverclockProfile(
+            Name: "Personnalisé",
+            CoreOffsetMhz: basis.CoreOffsetMhz,
+            MemoryOffsetMhz: basis.MemoryOffsetMhz,
+            PowerLimitPercent: basis.PowerLimitPercent,
+            TempLimitC: basis.TempLimitC,
+            FanStrategy: basis.FanStrategy,
+            Rationale: "Mode personnalisé : vous fixez vous-même les offsets cœur/mémoire, la limite " +
+                       "de puissance et la température cible, dans des bornes sûres. Augmentez par " +
+                       "petits paliers en testant la stabilité à chaque étape — c'est la méthode des " +
+                       "overclockeurs. En cas de doute, repartez d'un profil prédéfini.",
+            Steps: steps,
+            Actionable: true,
+            IsDefault: false,
+            IsCustom: true);
+
+        return profiles.Append(custom).ToList();
     }
 
     // ---------------------------------------------------------------- NVIDIA ----

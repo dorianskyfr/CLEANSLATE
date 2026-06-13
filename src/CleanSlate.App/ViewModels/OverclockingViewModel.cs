@@ -28,6 +28,9 @@ public sealed class OverclockingViewModel : ObservableObject
     private bool _isCheckingDriver;
     private GpuDriverCheckResult? _driverCheck;
 
+    private OverclockLimits? _limits;
+    private int _customCore, _customMemory, _customPower, _customTemp;
+
     public OverclockingViewModel(IOverclockingAdvisor advisor, IGpuOverclocker overclocker, IGpuDriverChecker driverChecker, IDialogService dialogs)
     {
         _advisor = advisor;
@@ -115,6 +118,9 @@ public sealed class OverclockingViewModel : ObservableObject
                 ClearDriverCheck();
                 CheckDriverUpdateCommand.RaiseCanExecuteChanged();
 
+                _limits = value is null ? null : _advisor.GetCustomLimits(value);
+                RaiseCustomLimitsChanged();
+
                 Profiles.Clear();
                 if (value is not null)
                     foreach (var p in _advisor.RecommendProfiles(value, CanAutoApply)) Profiles.Add(p);
@@ -132,7 +138,19 @@ public sealed class OverclockingViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedProfile, value))
             {
+                // Au passage en mode personnalisé, on initialise les curseurs sur les
+                // valeurs du profil (point de départ), bornées par les limites de la carte.
+                if (value is { IsCustom: true })
+                {
+                    _customCore   = Clamp(value.CoreOffsetMhz,   _limits?.CoreMinMhz  ?? 0, _limits?.CoreMaxMhz  ?? 0);
+                    _customMemory = Clamp(value.MemoryOffsetMhz, _limits?.MemMinMhz   ?? 0, _limits?.MemMaxMhz   ?? 0);
+                    _customPower  = Clamp(value.PowerLimitPercent, _limits?.PowerMinPct ?? 0, _limits?.PowerMaxPct ?? 0);
+                    _customTemp   = Clamp(value.TempLimitC,      _limits?.TempMinC    ?? 0, _limits?.TempMaxC    ?? 0);
+                    RaiseCustomValuesChanged();
+                }
+
                 OnPropertyChanged(nameof(HasProfile));
+                OnPropertyChanged(nameof(IsCustomMode));
                 OnPropertyChanged(nameof(CoreOffsetDisplay));
                 OnPropertyChanged(nameof(MemoryOffsetDisplay));
                 OnPropertyChanged(nameof(PowerLimitDisplay));
@@ -158,12 +176,89 @@ public sealed class OverclockingViewModel : ObservableObject
         ? string.Empty
         : $"VRAM : {SelectedGpu.VramDisplay}   •   Pilote : {SelectedGpu.DriverVersion ?? "?"}";
 
-    public string CoreOffsetDisplay   => SelectedProfile is null ? "—" : $"+{SelectedProfile.CoreOffsetMhz} MHz";
-    public string MemoryOffsetDisplay => SelectedProfile is null ? "—" : $"+{SelectedProfile.MemoryOffsetMhz} MHz";
-    public string PowerLimitDisplay   => SelectedProfile is null ? "—" : $"{SelectedProfile.PowerLimitPercent} %";
-    public string TempLimitDisplay    => SelectedProfile is null ? "—" : $"{SelectedProfile.TempLimitC} °C";
+    public string CoreOffsetDisplay   => SelectedProfile is null ? "—" : Signed(CurrentCore) + " MHz";
+    public string MemoryOffsetDisplay => SelectedProfile is null ? "—" : Signed(CurrentMemory) + " MHz";
+    public string PowerLimitDisplay   => SelectedProfile is null ? "—" : $"{CurrentPower} %";
+    public string TempLimitDisplay    => SelectedProfile is null ? "—" : $"{CurrentTemp} °C";
     public string FanStrategy         => SelectedProfile?.FanStrategy ?? "—";
     public string Rationale           => SelectedProfile?.Rationale ?? string.Empty;
+
+    private static string Signed(int v) => v >= 0 ? $"+{v}" : v.ToString();
+
+    /// <summary>Vrai si le profil sélectionné est le mode « Personnalisé » (curseurs éditables).</summary>
+    public bool IsCustomMode => SelectedProfile is { IsCustom: true };
+
+    /// <summary>Vrai si la carte permet l'overclocking manuel (bornes disponibles).</summary>
+    public bool HasCustomLimits => _limits is not null;
+
+    // Valeurs effectives (custom si mode personnalisé, sinon celles du profil prédéfini).
+    private int CurrentCore   => IsCustomMode ? _customCore   : SelectedProfile?.CoreOffsetMhz     ?? 0;
+    private int CurrentMemory => IsCustomMode ? _customMemory : SelectedProfile?.MemoryOffsetMhz   ?? 0;
+    private int CurrentPower  => IsCustomMode ? _customPower  : SelectedProfile?.PowerLimitPercent ?? 0;
+    private int CurrentTemp   => IsCustomMode ? _customTemp   : SelectedProfile?.TempLimitC        ?? 0;
+
+    // Curseurs du mode personnalisé (bornés aux limites de la carte).
+    public int CustomCore
+    {
+        get => _customCore;
+        set { if (SetProperty(ref _customCore, Clamp(value, _limits?.CoreMinMhz ?? 0, _limits?.CoreMaxMhz ?? 0))) OnPropertyChanged(nameof(CoreOffsetDisplay)); }
+    }
+    public int CustomMemory
+    {
+        get => _customMemory;
+        set { if (SetProperty(ref _customMemory, Clamp(value, _limits?.MemMinMhz ?? 0, _limits?.MemMaxMhz ?? 0))) OnPropertyChanged(nameof(MemoryOffsetDisplay)); }
+    }
+    public int CustomPower
+    {
+        get => _customPower;
+        set { if (SetProperty(ref _customPower, Clamp(value, _limits?.PowerMinPct ?? 0, _limits?.PowerMaxPct ?? 0))) OnPropertyChanged(nameof(PowerLimitDisplay)); }
+    }
+    public int CustomTemp
+    {
+        get => _customTemp;
+        set { if (SetProperty(ref _customTemp, Clamp(value, _limits?.TempMinC ?? 0, _limits?.TempMaxC ?? 0))) OnPropertyChanged(nameof(TempLimitDisplay)); }
+    }
+
+    // Bornes exposées aux curseurs (sliders) de la vue.
+    public int CoreMin  => _limits?.CoreMinMhz  ?? 0;
+    public int CoreMax  => _limits?.CoreMaxMhz  ?? 0;
+    public int MemMin   => _limits?.MemMinMhz   ?? 0;
+    public int MemMax   => _limits?.MemMaxMhz   ?? 0;
+    public int PowerMin => _limits?.PowerMinPct ?? 0;
+    public int PowerMax => _limits?.PowerMaxPct ?? 0;
+    public int TempMin  => _limits?.TempMinC    ?? 0;
+    public int TempMax  => _limits?.TempMaxC    ?? 0;
+
+    private static int Clamp(int v, int min, int max) => max <= min ? v : Math.Clamp(v, min, max);
+
+    private void RaiseCustomLimitsChanged()
+    {
+        OnPropertyChanged(nameof(HasCustomLimits));
+        OnPropertyChanged(nameof(CoreMin));  OnPropertyChanged(nameof(CoreMax));
+        OnPropertyChanged(nameof(MemMin));   OnPropertyChanged(nameof(MemMax));
+        OnPropertyChanged(nameof(PowerMin)); OnPropertyChanged(nameof(PowerMax));
+        OnPropertyChanged(nameof(TempMin));  OnPropertyChanged(nameof(TempMax));
+    }
+
+    private void RaiseCustomValuesChanged()
+    {
+        OnPropertyChanged(nameof(CustomCore));   OnPropertyChanged(nameof(CustomMemory));
+        OnPropertyChanged(nameof(CustomPower));  OnPropertyChanged(nameof(CustomTemp));
+    }
+
+    /// <summary>Profil effectif appliqué/copié : valeurs des curseurs si mode personnalisé.</summary>
+    private OverclockProfile? EffectiveProfile()
+    {
+        var p = SelectedProfile;
+        if (p is null || !p.IsCustom) return p;
+        return p with
+        {
+            CoreOffsetMhz = _customCore,
+            MemoryOffsetMhz = _customMemory,
+            PowerLimitPercent = _customPower,
+            TempLimitC = _customTemp,
+        };
+    }
 
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
 
@@ -187,14 +282,16 @@ public sealed class OverclockingViewModel : ObservableObject
 
     private async Task ApplyAsync()
     {
-        if (SelectedGpu is null || SelectedProfile is null) return;
+        if (SelectedGpu is null) return;
 
-        var profile = SelectedProfile;
+        var profile = EffectiveProfile();
+        if (profile is null) return;
+
         var confirmed = _dialogs.Confirm(
             "Appliquer l'overclock",
             $"CleanSlate va appliquer le profil « {profile.Name} » à votre {SelectedGpu.Name} :\n\n" +
-            $"  • Fréquence cœur : +{profile.CoreOffsetMhz} MHz\n" +
-            $"  • Fréquence mémoire : +{profile.MemoryOffsetMhz} MHz\n\n" +
+            $"  • Fréquence cœur : {Signed(profile.CoreOffsetMhz)} MHz\n" +
+            $"  • Fréquence mémoire : {Signed(profile.MemoryOffsetMhz)} MHz\n\n" +
             "⚠️ EXPÉRIMENTAL. En cas d'instabilité (artefacts, écran noir, crash), cliquez sur " +
             "« Reset » pour tout annuler — les offsets ne survivent pas à un redémarrage. " +
             "Lancez ensuite un test de stabilité.\n\nContinuer ?");
@@ -288,8 +385,8 @@ public sealed class OverclockingViewModel : ObservableObject
 
     private void CopyProfile()
     {
-        if (SelectedProfile is null) return;
-        var profile = SelectedProfile;
+        var profile = EffectiveProfile();
+        if (profile is null) return;
         var sb = new StringBuilder();
         sb.AppendLine($"Profil d'overclocking « {profile.Name} » — {GpuName}");
         sb.AppendLine($"  Core Clock   : {CoreOffsetDisplay}");

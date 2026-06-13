@@ -9,6 +9,14 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.2.5 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Overclocking : nouveau mode « Personnalisé » — fixez vous-même\n" +
+        "  l'offset cœur, l'offset mémoire, la limite de puissance et la\n" +
+        "  température via des curseurs bornés (intervalles sûrs selon votre\n" +
+        "  marque). Appliqué directement sur NVIDIA/AMD dédiées, avec Reset.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.2 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• DLSS Enabler : le DLL est posé À CÔTÉ DE L'EXÉCUTABLE du jeu, localisé\n" +

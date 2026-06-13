@@ -108,4 +108,64 @@ public class OverclockingAdvisorTests
         Assert.Contains(withAuto[0].Steps, s => s.Contains("Appliquer l'overclock"));
         Assert.DoesNotContain(withoutAuto[0].Steps, s => s.Contains("Appliquer l'overclock"));
     }
+
+    // ------------------------------------------------------------------
+    //  Mode personnalisé (l'utilisateur fixe ses propres valeurs)
+    // ------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(GpuVendor.Nvidia)]
+    [InlineData(GpuVendor.Amd)]
+    [InlineData(GpuVendor.Unknown)]
+    public void RecommendProfiles_CarteDedieeOffset_AjouteUnProfilPersonnalise(GpuVendor vendor)
+    {
+        var gpu = new GpuInfo("Carte de test", vendor, 8L * 1024 * 1024 * 1024, "1.0.0.0", IsIntegrated: false);
+
+        var profiles = Advisor.RecommendProfiles(gpu, canAutoApply: false);
+
+        var custom = Assert.Single(profiles, p => p.IsCustom);
+        Assert.Equal("Personnalisé", custom.Name);
+        Assert.True(custom.Actionable);
+        Assert.False(custom.IsDefault);
+        // Initialisé sur les valeurs du profil par défaut (point de départ).
+        var basis = profiles.Single(p => p.IsDefault);
+        Assert.Equal(basis.CoreOffsetMhz, custom.CoreOffsetMhz);
+        Assert.Equal(basis.MemoryOffsetMhz, custom.MemoryOffsetMhz);
+    }
+
+    [Fact]
+    public void RecommendProfiles_IntelBoost_PasDeProfilPersonnalise()
+    {
+        // Intel se règle via un curseur de boost %, pas d'offset MHz : pas de mode perso.
+        var gpu = new GpuInfo("Intel(R) Arc(TM) A770", GpuVendor.Intel, 16L * 1024 * 1024 * 1024, "31.0.0.0", IsIntegrated: false);
+
+        var profiles = Advisor.RecommendProfiles(gpu, canAutoApply: false);
+
+        Assert.DoesNotContain(profiles, p => p.IsCustom);
+    }
+
+    [Theory]
+    [InlineData(GpuVendor.Nvidia)]
+    [InlineData(GpuVendor.Amd)]
+    [InlineData(GpuVendor.Unknown)]
+    public void GetCustomLimits_CarteDediee_RenvoieDesBornesCoherentes(GpuVendor vendor)
+    {
+        var gpu = new GpuInfo("Carte de test", vendor, 8L * 1024 * 1024 * 1024, "1.0.0.0", IsIntegrated: false);
+
+        var limits = Advisor.GetCustomLimits(gpu);
+
+        Assert.NotNull(limits);
+        Assert.True(limits!.CoreMinMhz < limits.CoreMaxMhz);
+        Assert.True(limits.MemMinMhz < limits.MemMaxMhz);
+        Assert.True(limits.PowerMinPct < limits.PowerMaxPct);
+        Assert.True(limits.TempMinC < limits.TempMaxC);
+    }
+
+    [Fact]
+    public void GetCustomLimits_GpuIntegre_RenvoieNull()
+    {
+        var gpu = new GpuInfo("Intel(R) UHD Graphics 620", GpuVendor.Intel, 0, "1.0", IsIntegrated: true);
+
+        Assert.Null(Advisor.GetCustomLimits(gpu));
+    }
 }

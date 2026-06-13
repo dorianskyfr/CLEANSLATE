@@ -179,6 +179,73 @@
                                     </StackPanel>
                                 </UniformGrid>
 
+                                <!-- Mode personnalisé : curseurs pour fixer ses propres valeurs (bornes sûres) -->
+                                <StackPanel Margin="0,14,0,0"
+                                            Visibility="{Binding IsCustomMode, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="🎛️ Réglages personnalisés (curseurs bornés pour rester sûr) :"
+                                               Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                                    <Grid Margin="0,2,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Core Clock" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <Slider Grid.Column="1" VerticalAlignment="Center" Margin="6,0"
+                                                Minimum="{Binding CoreMin}" Maximum="{Binding CoreMax}"
+                                                Value="{Binding CustomCore}" TickFrequency="5" IsSnapToTickEnabled="True" />
+                                        <TextBlock Grid.Column="2" Text="{Binding CoreOffsetDisplay}" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="12" />
+                                    </Grid>
+
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Memory Clock" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <Slider Grid.Column="1" VerticalAlignment="Center" Margin="6,0"
+                                                Minimum="{Binding MemMin}" Maximum="{Binding MemMax}"
+                                                Value="{Binding CustomMemory}" TickFrequency="25" IsSnapToTickEnabled="True" />
+                                        <TextBlock Grid.Column="2" Text="{Binding MemoryOffsetDisplay}" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="12" />
+                                    </Grid>
+
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Power Limit" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <Slider Grid.Column="1" VerticalAlignment="Center" Margin="6,0"
+                                                Minimum="{Binding PowerMin}" Maximum="{Binding PowerMax}"
+                                                Value="{Binding CustomPower}" TickFrequency="1" IsSnapToTickEnabled="True" />
+                                        <TextBlock Grid.Column="2" Text="{Binding PowerLimitDisplay}" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="12" />
+                                    </Grid>
+
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Temp Limit" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <Slider Grid.Column="1" VerticalAlignment="Center" Margin="6,0"
+                                                Minimum="{Binding TempMin}" Maximum="{Binding TempMax}"
+                                                Value="{Binding CustomTemp}" TickFrequency="1" IsSnapToTickEnabled="True" />
+                                        <TextBlock Grid.Column="2" Text="{Binding TempLimitDisplay}" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="12" />
+                                    </Grid>
+                                </StackPanel>
+
                                 <TextBlock Text="{Binding Rationale}" Style="{StaticResource MutedText}"
                                            Margin="0,14,0,0" />
 

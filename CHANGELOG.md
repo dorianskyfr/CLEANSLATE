@@ -1,3 +1,10 @@
+## v1.2.5
+
+### Nouveautés
+- 🎛️ **Overclocking : mode « Personnalisé »** : en plus des profils prédéfinis (Sûr / Équilibré / Performance), un nouveau profil **« Personnalisé »** permet de **fixer soi-même** l'offset cœur, l'offset mémoire, la limite de puissance et la température cible, via des **curseurs bornés** (intervalles sûrs adaptés à votre marque de carte — NVIDIA, AMD ou générique). Sur les cartes NVIDIA et AMD dédiées, vos valeurs sont **appliquées directement** par CleanSlate (NVAPI / ADL), avec le bouton « Reset » pour tout annuler ; sur les autres, le profil personnalisé se copie pour être reporté dans l'outil du constructeur. Les bornes empêchent les réglages dangereux tout en laissant la main à l'utilisateur (un léger *underclock* est aussi possible).
+
+---
+
 ## v1.2.0
 
 ### Nouveautés
