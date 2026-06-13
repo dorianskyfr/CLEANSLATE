@@ -416,6 +416,11 @@
                                 <TextBlock Text="{Binding GameStatusText}" Foreground="{DynamicResource TextBrush}"
                                            FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />
 
+                                <!-- Diagnostic de compatibilité DLSS (le mod n'ajoute pas le DLSS à un jeu qui n'en a pas) -->
+                                <TextBlock Text="{Binding CompatibilityText}" Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Visibility="{Binding HasCompatibilityText, Converter={StaticResource BoolToVisibility}}" />
+
                                 <!-- Avertissement Xbox Game Pass : intégrité du package, persistance non garantie -->
                                 <TextBlock Text="⚠️ Jeu Xbox Game Pass : Windows peut supprimer les DLL ajoutées lors d'une vérification d'intégrité ou d'une mise à jour."
                                            Foreground="{DynamicResource AccentBrush}" FontSize="12"

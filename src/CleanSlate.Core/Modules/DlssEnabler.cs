@@ -1,7 +1,10 @@
 using System.Diagnostics;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -56,6 +59,30 @@ public sealed record DlssInstallResult(
     string? TargetDir,
     DlssInstallFailure Failure = DlssInstallFailure.None);
 
+/// <summary>Niveau de compatibilité d'un jeu avec DLSS Enabler.</summary>
+public enum DlssCompatibility
+{
+    /// <summary>DLSS natif détecté (nvngx_dlss / Streamline) : le mod fonctionnera.</summary>
+    Compatible,
+
+    /// <summary>Upscaler détecté (FSR / XeSS) mais pas DLSS : le mod peut aider, sans garantie.</summary>
+    Maybe,
+
+    /// <summary>Aucun upscaler détecté : le jeu ne supporte probablement pas DLSS — le mod n'aura aucun effet.</summary>
+    Unlikely,
+}
+
+/// <summary>
+/// Diagnostic de compatibilité d'un jeu : DLSS Enabler ne fait qu'« activer » le DLSS
+/// (et la Frame Generation) sur des jeux qui embarquent DÉJÀ les composants DLSS/FSR3/XeSS.
+/// Il ne crée pas le support DLSS à partir de rien : sur un jeu sans aucun upscaler, il
+/// n'a aucun effet. <paramref name="Evidence"/> liste les fichiers révélateurs trouvés.
+/// </summary>
+public sealed record DlssCompatibilityInfo(
+    DlssCompatibility Level,
+    IReadOnlyList<string> Evidence,
+    string Summary);
+
 /// <summary>
 /// Gestion du mod « DLSS Enabler » (artur-graniszewski — github.com/artur-graniszewski/DLSS-Enabler,
 /// aussi distribué sur Nexus Mods, site/mods/757). Le mod simule DLSS Super Resolution et
@@ -85,6 +112,19 @@ public interface IDlssEnablerService
 
     /// <summary>Vérifie si DLSS Enabler est installé dans le dossier de jeu donné.</summary>
     DlssEnablerStatus GetStatus(string gameDir);
+
+    /// <summary>
+    /// Évalue si le jeu supporte DLSS (donc si le mod peut faire quelque chose) en
+    /// cherchant les composants DLSS / Streamline / FSR3 / XeSS dans le dossier du jeu.
+    /// </summary>
+    DlssCompatibilityInfo GetCompatibility(string gameDir);
+
+    /// <summary>
+    /// Tente de trouver une jaquette pour un jeu sans image (Epic, Game Pass, dossier
+    /// manuel) en interrogeant la recherche du magasin Steam par son nom. Renvoie une
+    /// URL d'image ou null. Best-effort : aucune exception ne remonte.
+    /// </summary>
+    Task<string?> ResolveCoverUrlAsync(string gameName, CancellationToken ct);
 
     /// <summary>
     /// Installe le mod à partir du DLL embarqué dans CleanSlate : le DLL est copié
@@ -309,6 +349,11 @@ public sealed class DlssEnablerService : IDlssEnablerService
     /// Détecte les jeux installés via l'app Xbox / Xbox Game Pass : ces jeux sont posés
     /// dans un dossier « XboxGames » à la racine de chaque disque, un sous-dossier par
     /// jeu contenant lui-même un dossier « Content » avec l'exécutable.
+    ///
+    /// On ne garde QUE les vrais jeux : « XboxGames » contient aussi des dossiers de
+    /// service (sauvegardes « GameSave », fichiers temporaires…) qui ne sont pas des
+    /// jeux. Un vrai jeu a un sous-dossier « Content » contenant un exécutable et/ou un
+    /// manifeste Xbox (MicrosoftGame.config / appxmanifest.xml / AppxManifest.xml).
     /// </summary>
     private static IEnumerable<InstalledGame> ScanGamePassGames()
     {
@@ -329,11 +374,43 @@ public sealed class DlssEnablerService : IDlssEnablerService
             {
                 var name = Path.GetFileName(dir.TrimEnd('\\', '/'));
                 if (string.IsNullOrEmpty(name)) continue;
+                if (!IsGamePassGameFolder(dir)) continue; // ignore « GameSave » & co.
 
                 var content = Path.Combine(dir, "Content");
-                yield return new InstalledGame(name, Directory.Exists(content) ? content : dir, "Xbox Game Pass");
+                yield return new InstalledGame(name, content, "Xbox Game Pass");
             }
         }
+    }
+
+    /// <summary>Noms de dossiers « XboxGames » qui ne sont jamais des jeux.</summary>
+    private static readonly string[] NonGameXboxFolders =
+    {
+        "GameSave", "GameSaves", "Saves", "SaveGames",
+    };
+
+    /// <summary>
+    /// Vrai si un sous-dossier de « XboxGames » est un vrai jeu : il possède un dossier
+    /// « Content » contenant un manifeste Xbox ou au moins un exécutable.
+    /// </summary>
+    internal static bool IsGamePassGameFolder(string dir)
+    {
+        var name = Path.GetFileName(dir.TrimEnd('\\', '/'));
+        if (NonGameXboxFolders.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        var content = Path.Combine(dir, "Content");
+        if (!Directory.Exists(content)) return false;
+
+        try
+        {
+            foreach (var manifest in new[] { "MicrosoftGame.config", "appxmanifest.xml", "AppxManifest.xml" })
+                if (File.Exists(Path.Combine(content, manifest)))
+                    return true;
+
+            // À défaut de manifeste, la présence d'un exécutable suffit à confirmer un jeu.
+            return Directory.EnumerateFiles(content, "*.exe").Any();
+        }
+        catch { return false; }
     }
 
     // ------------------------------------------------------------------
@@ -521,6 +598,116 @@ public sealed class DlssEnablerService : IDlssEnablerService
             return rel == "." ? string.Empty : rel + Path.DirectorySeparatorChar;
         }
         catch { return string.Empty; }
+    }
+
+    // ------------------------------------------------------------------
+    //  Compatibilité du jeu avec DLSS Enabler
+    // ------------------------------------------------------------------
+
+    /// <summary>Composants DLSS / Streamline natifs : leur présence garantit la compatibilité.</summary>
+    private static readonly string[] DlssMarkers =
+    {
+        "nvngx_dlss.dll", "nvngx_dlssg.dll", "nvngx_dlssd.dll",
+        "sl.interposer.dll", "sl.dlss.dll", "sl.dlss_g.dll", "sl.common.dll",
+    };
+
+    /// <summary>Upscalers FSR / XeSS : DLSS Enabler peut s'appuyer dessus, sans garantie.</summary>
+    private static readonly string[] OtherUpscalerMarkers =
+    {
+        "libxess.dll", "libxess_dx11.dll", "xess.dll",
+        "amd_fidelityfx_dx12.dll", "amd_fidelityfx_vk.dll", "ffx_fsr2_api_x64.dll",
+        "amdxcffx64.dll",
+    };
+
+    public DlssCompatibilityInfo GetCompatibility(string gameDir)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+            return new DlssCompatibilityInfo(DlssCompatibility.Unlikely, Array.Empty<string>(),
+                "Dossier introuvable.");
+
+        var found = FindMarkers(gameDir, DlssMarkers.Concat(OtherUpscalerMarkers).ToArray(), maxDepth: 4);
+
+        var dlss  = found.Where(f => DlssMarkers.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)).ToList();
+        var other = found.Where(f => OtherUpscalerMarkers.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)).ToList();
+
+        var evidence = found.Select(Path.GetFileName).Where(n => n is not null).Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (dlss.Count > 0)
+            return new DlssCompatibilityInfo(DlssCompatibility.Compatible, evidence,
+                "✅ Ce jeu supporte DLSS nativement : DLSS Enabler pourra activer le DLSS et la " +
+                "Frame Generation (y compris le Multi Frame Generation jusqu'à x4).");
+
+        if (other.Count > 0)
+            return new DlssCompatibilityInfo(DlssCompatibility.Maybe, evidence,
+                "🟡 Pas de DLSS natif, mais un upscaler (FSR/XeSS) est présent : DLSS Enabler PEUT " +
+                "aider (Frame Generation via FSR3), sans garantie. À tester.");
+
+        return new DlssCompatibilityInfo(DlssCompatibility.Unlikely, evidence,
+            "⚠️ Aucun composant DLSS/FSR/XeSS détecté : ce jeu ne supporte probablement pas le DLSS. " +
+            "DLSS Enabler n'ajoute pas le DLSS à un jeu qui n'en a pas — l'installer ici n'aura sans " +
+            "doute AUCUN effet.");
+    }
+
+    /// <summary>Cherche des fichiers cibles (par nom) dans un dossier, en profondeur bornée.</summary>
+    private static List<string> FindMarkers(string root, string[] names, int maxDepth)
+    {
+        var hits = new List<string>();
+        var wanted = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+
+        void Walk(string dir, int depth)
+        {
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(dir, "*.dll"))
+                    if (wanted.Contains(Path.GetFileName(file)))
+                        hits.Add(file);
+            }
+            catch { return; }
+
+            if (depth >= maxDepth) return;
+            IEnumerable<string> subs;
+            try { subs = Directory.EnumerateDirectories(dir); }
+            catch { return; }
+            foreach (var sub in subs)
+                Walk(sub, depth + 1);
+        }
+
+        Walk(root, 0);
+        return hits;
+    }
+
+    // ------------------------------------------------------------------
+    //  Jaquette par nom (jeux hors Steam)
+    // ------------------------------------------------------------------
+
+    public async Task<string?> ResolveCoverUrlAsync(string gameName, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(gameName)) return null;
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-DlssEnabler");
+
+            var url = "https://store.steampowered.com/api/storesearch/?cc=us&l=en&term=" +
+                      Uri.EscapeDataString(gameName);
+            var result = await http.GetFromJsonAsync<StoreSearchResult>(url, ct).ConfigureAwait(false);
+
+            var appId = result?.Items?.FirstOrDefault(i => i.Id > 0)?.Id;
+            return appId is > 0 ? SteamCoverUrl(appId.Value.ToString()) : null;
+        }
+        catch { return null; }
+    }
+
+    private sealed class StoreSearchResult
+    {
+        [JsonPropertyName("items")] public List<StoreSearchItem>? Items { get; set; }
+    }
+
+    private sealed class StoreSearchItem
+    {
+        [JsonPropertyName("id")] public int Id { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
     }
 
     /// <summary>

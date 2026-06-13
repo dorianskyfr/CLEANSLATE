@@ -1,3 +1,16 @@
+## v1.2.6
+
+### Nouveautés
+- 🧠 **DLSS Enabler : vérification de compatibilité** : avant d'installer, CleanSlate analyse le jeu et indique s'il **supporte vraiment le DLSS**. Le mod ne fait qu'*activer* le DLSS/Frame Generation là où les composants existent déjà (`nvngx_dlss.dll`, Streamline, FSR3/XeSS) — il n'ajoute pas le DLSS à un jeu qui n'en a pas. Un jeu sans aucun upscaler est désormais signalé (🟢 compatible / 🟡 possible via FSR-XeSS / ⚠️ improbable), avec un avertissement clair à l'installation pour éviter d'installer le mod « pour rien ».
+- 🎮 **Game Pass : fini les faux jeux** : les dossiers de service du dossier `XboxGames` (comme **« GameSave »**, qui n'est pas un jeu) ne sont plus listés. Un dossier n'est considéré comme un jeu que s'il contient un `Content` avec un manifeste Xbox ou un exécutable.
+- 🖼️ **Jaquettes pour tous** : les jeux sans image (Epic, Game Pass, dossiers manuels) récupèrent maintenant leur jaquette via une recherche par nom sur Steam — beaucoup plus de jeux affichent leur visuel (best-effort, en tâche de fond).
+
+### Améliorations
+- 🎯 **DLSS Enabler** : après installation, le message explique comment ouvrir l'overlay du mod et régler le **Multi Frame Generation (x2/x3/x4)** — x4 étant le maximum du Multi Frame Generation (DLSS 4 / dernier Streamline).
+- ✅ Vérifications : tout le pipeline (détection, compatibilité, installation à côté de l'exe, désinstallation) est couvert par de nouveaux tests automatisés.
+
+---
+
 ## v1.2.5
 
 ### Nouveautés

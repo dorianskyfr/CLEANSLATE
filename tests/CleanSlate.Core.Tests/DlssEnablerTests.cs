@@ -475,4 +475,132 @@ public class DlssEnablerTests
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
+
+    // ------------------------------------------------------------------
+    //  Filtrage des dossiers « XboxGames » (un vrai jeu, pas « GameSave »)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void IsGamePassGameFolder_AvecContentEtExe_EstUnJeu()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            var content = Path.Combine(dir, "Content");
+            Directory.CreateDirectory(content);
+            File.WriteAllText(Path.Combine(content, "Game.exe"), "x");
+
+            Assert.True(DlssEnablerService.IsGamePassGameFolder(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void IsGamePassGameFolder_AvecManifesteXbox_EstUnJeu()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            var content = Path.Combine(dir, "Content");
+            Directory.CreateDirectory(content);
+            File.WriteAllText(Path.Combine(content, "MicrosoftGame.config"), "<Game/>");
+
+            Assert.True(DlssEnablerService.IsGamePassGameFolder(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void IsGamePassGameFolder_DossierGameSave_NestPasUnJeu()
+    {
+        // Reproduit le cas signalé : « C:\XboxGames\GameSave » n'est pas un jeu.
+        var parent = CreateGameDir();
+        try
+        {
+            var gameSave = Path.Combine(parent, "GameSave");
+            Directory.CreateDirectory(Path.Combine(gameSave, "Content"));
+
+            Assert.False(DlssEnablerService.IsGamePassGameFolder(gameSave));
+        }
+        finally { Directory.Delete(parent, recursive: true); }
+    }
+
+    [Fact]
+    public void IsGamePassGameFolder_SansContent_NestPasUnJeu()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            Assert.False(DlssEnablerService.IsGamePassGameFolder(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    // ------------------------------------------------------------------
+    //  Compatibilité DLSS (le mod n'ajoute pas le DLSS à un jeu qui n'en a pas)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetCompatibility_DlssNatif_EstCompatible()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "nvngx_dlss.dll"), "x");
+
+            var info = new DlssEnablerService().GetCompatibility(dir);
+
+            Assert.Equal(DlssCompatibility.Compatible, info.Level);
+            Assert.Contains("nvngx_dlss.dll", info.Evidence);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetCompatibility_UpscalerFsrXess_EstPeutEtre()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "libxess.dll"), "x");
+
+            var info = new DlssEnablerService().GetCompatibility(dir);
+
+            Assert.Equal(DlssCompatibility.Maybe, info.Level);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetCompatibility_AucunUpscaler_EstImprobable()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "Game.exe"), "x");
+            File.WriteAllText(Path.Combine(dir, "engine.dll"), "x");
+
+            var info = new DlssEnablerService().GetCompatibility(dir);
+
+            Assert.Equal(DlssCompatibility.Unlikely, info.Level);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetCompatibility_DllDansSousDossier_EstTrouve()
+    {
+        var dir = CreateGameDir();
+        try
+        {
+            var sub = Path.Combine(dir, "Engine", "Binaries", "ThirdParty");
+            Directory.CreateDirectory(sub);
+            File.WriteAllText(Path.Combine(sub, "nvngx_dlssg.dll"), "x");
+
+            var info = new DlssEnablerService().GetCompatibility(dir);
+
+            Assert.Equal(DlssCompatibility.Compatible, info.Level);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
 }

@@ -9,6 +9,19 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.2.6 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• DLSS Enabler : vérification de compatibilité avant installation —\n" +
+        "  le mod n'ajoute pas le DLSS à un jeu qui n'en a pas, c'est signalé\n" +
+        "  clairement (compatible / possible via FSR-XeSS / improbable).\n" +
+        "• Game Pass : les faux jeux du dossier XboxGames (ex. « GameSave »)\n" +
+        "  ne sont plus listés.\n" +
+        "• Jaquettes : les jeux sans image (Epic, Game Pass, manuels) récupèrent\n" +
+        "  leur visuel via une recherche par nom sur Steam.\n" +
+        "• Aide post-install : comment régler le Multi Frame Generation\n" +
+        "  (x2/x3/x4) dans l'overlay du mod.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.2.5 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Overclocking : nouveau mode « Personnalisé » — fixez vous-même\n" +

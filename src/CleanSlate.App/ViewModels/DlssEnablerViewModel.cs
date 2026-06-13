@@ -16,11 +16,13 @@ public sealed class GameTile : ObservableObject
 {
     private bool _installed;
     private bool _isSelected;
+    private string? _coverImage;
 
     public GameTile(InstalledGame game, bool installed)
     {
         Game = game;
         _installed = installed;
+        _coverImage = game.CoverImage;
     }
 
     public InstalledGame Game { get; }
@@ -28,7 +30,19 @@ public sealed class GameTile : ObservableObject
     public string Name => Game.Name;
     public string Source => Game.Source;
     public string InstallDir => Game.InstallDir;
-    public string? CoverImage => Game.CoverImage;
+
+    /// <summary>Jaquette : connue au scan, ou résolue ensuite par nom (jeux hors Steam).</summary>
+    public string? CoverImage
+    {
+        get => _coverImage;
+        set
+        {
+            if (SetProperty(ref _coverImage, value))
+                OnPropertyChanged(nameof(HasCover));
+        }
+    }
+
+    public bool HasCover => !string.IsNullOrEmpty(_coverImage);
 
     /// <summary>Jeu installé via le Xbox Game Pass : l'installation du mod peut être bloquée
     /// ou effacée par la vérification d'intégrité du package (badge d'avertissement).</summary>
@@ -68,6 +82,7 @@ public sealed class DlssEnablerViewModel : ObservableObject
     private GameTile? _selectedTile;
     private string _status = "Détection des jeux en cours…";
     private string _gameStatusText = string.Empty;
+    private string _compatibilityText = string.Empty;
     private string _filterText = string.Empty;
     private bool _isInstalled;
     private bool _isBusy;
@@ -141,6 +156,19 @@ public sealed class DlssEnablerViewModel : ObservableObject
 
     /// <summary>État du mod pour le jeu sélectionné (installé ou non + fichiers détectés).</summary>
     public string GameStatusText { get => _gameStatusText; private set => SetProperty(ref _gameStatusText, value); }
+
+    /// <summary>Diagnostic de compatibilité DLSS du jeu sélectionné.</summary>
+    public string CompatibilityText
+    {
+        get => _compatibilityText;
+        private set
+        {
+            if (SetProperty(ref _compatibilityText, value))
+                OnPropertyChanged(nameof(HasCompatibilityText));
+        }
+    }
+
+    public bool HasCompatibilityText => !string.IsNullOrEmpty(_compatibilityText);
 
     public bool IsInstalled
     {
@@ -244,6 +272,28 @@ public sealed class DlssEnablerViewModel : ObservableObject
         {
             IsBusy = false;
         }
+
+        // Jaquettes manquantes (Epic, Game Pass, dossiers manuels) : on tente de les
+        // retrouver par nom via Steam, en tâche de fond, sans bloquer l'affichage.
+        _ = ResolveMissingCoversAsync();
+    }
+
+    /// <summary>
+    /// Complète les jaquettes absentes en interrogeant Steam par le nom du jeu. Best-effort
+    /// (réseau optionnel) : chaque tuile est mise à jour dès qu'une image est trouvée.
+    /// </summary>
+    private async Task ResolveMissingCoversAsync()
+    {
+        var todo = Games.Where(t => !t.HasCover).ToList();
+        foreach (var tile in todo)
+        {
+            try
+            {
+                var url = await _service.ResolveCoverUrlAsync(tile.Name, CancellationToken.None);
+                if (!string.IsNullOrEmpty(url)) tile.CoverImage = url;
+            }
+            catch { /* best-effort : on garde la tuile d'origine */ }
+        }
     }
 
     private static string DirToName(string dir)
@@ -294,6 +344,7 @@ public sealed class DlssEnablerViewModel : ObservableObject
         if (_selectedTile is null)
         {
             GameStatusText = string.Empty;
+            CompatibilityText = string.Empty;
             IsInstalled = false;
             return;
         }
@@ -306,11 +357,15 @@ public sealed class DlssEnablerViewModel : ObservableObject
             GameStatusText = status.Installed
                 ? $"✅ DLSS Enabler est installé dans ce jeu ({string.Join(", ", status.DetectedFiles)})."
                 : "❌ DLSS Enabler n'est pas installé dans ce jeu.";
+
+            var compat = _service.GetCompatibility(_selectedTile.InstallDir);
+            CompatibilityText = compat.Summary;
         }
         catch (Exception ex)
         {
             IsInstalled = false;
             GameStatusText = $"État indéterminé : {ex.Message}";
+            CompatibilityText = string.Empty;
         }
     }
 
@@ -327,10 +382,21 @@ public sealed class DlssEnablerViewModel : ObservableObject
               "il suffira de réinstaller le mod."
             : string.Empty;
 
+        // Avertissement si le jeu n'a pas l'air de supporter le DLSS : inutile d'installer.
+        var compat = _service.GetCompatibility(game.InstallDir);
+        var compatWarning = compat.Level == DlssCompatibility.Unlikely
+            ? "\n\n⛔ ATTENTION : aucun composant DLSS/FSR/XeSS n'a été trouvé dans ce jeu. " +
+              "DLSS Enabler n'AJOUTE PAS le DLSS à un jeu qui n'en a pas — il ne fait que " +
+              "l'activer là où il existe déjà. L'installer ici n'aura très probablement AUCUN effet."
+            : compat.Level == DlssCompatibility.Maybe
+                ? "\n\n🟡 Pas de DLSS natif détecté, mais un upscaler FSR/XeSS est présent : " +
+                  "le mod peut aider (Frame Generation), sans garantie."
+                : string.Empty;
+
         var confirmed = _dialogs.Confirm("Installer DLSS Enabler",
             $"Installer le mod DLSS Enabler dans :\n{game.InstallDir}\n\n" +
             "⚠️ Rappel : uniquement pour les jeux SOLO. Dans un jeu multijoueur protégé " +
-            "par un anticheat, ce mod peut entraîner un bannissement." + gamePassWarning +
+            "par un anticheat, ce mod peut entraîner un bannissement." + compatWarning + gamePassWarning +
             "\n\nContinuer ?");
         if (!confirmed) return;
 
@@ -348,9 +414,11 @@ public sealed class DlssEnablerViewModel : ObservableObject
                 _dialogs.Info("DLSS Enabler",
                     $"DLSS Enabler v{_service.EmbeddedVersion} est installé dans « {game.Name} ».\n\n" +
                     $"Fichier posé : {result.InstalledFile}\nÀ côté de l'exécutable, dans :\n{result.TargetDir}\n\n" +
-                    "Lancez le jeu puis activez DLSS (Super Resolution / Frame Generation, y compris " +
-                    "le Multi Frame Generation) dans son overlay (Maj+F3 par défaut) ou ses options " +
-                    "graphiques.");
+                    "Lancez le jeu, puis ouvrez l'overlay du mod (Fin / End par défaut) pour activer le " +
+                    "DLSS Super Resolution et la Frame Generation. Le multiplicateur de Multi Frame " +
+                    "Generation (x2 / x3 / x4) se choisit dans cet overlay — x4 est le maximum du Multi " +
+                    "Frame Generation (DLSS 4 / Streamline). Activez aussi le DLSS dans les options " +
+                    "graphiques du jeu.");
             }
             else if (result.Failure == DlssInstallFailure.WriteDenied && _selectedTile.IsGamePass)
             {
