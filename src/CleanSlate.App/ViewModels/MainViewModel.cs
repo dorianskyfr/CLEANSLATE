@@ -9,6 +9,17 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.2.7 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• DLSS Enabler : correction de faux négatifs de compatibilité — la\n" +
+        "  recherche des composants DLSS/Streamline va maintenant 8 niveaux\n" +
+        "  de profondeur (au lieu de 4), couvrant les jeux Unreal Engine 5\n" +
+        "  récents (ex. Subnautica 2) qui les rangent très profondément.\n" +
+        "• Le message « rien trouvé » précise désormais que ce n'est pas une\n" +
+        "  certitude (la vérification a ses limites) — l'installation reste\n" +
+        "  possible, sans risque et réversible.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.2.6 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• DLSS Enabler : vérification de compatibilité avant installation —\n" +

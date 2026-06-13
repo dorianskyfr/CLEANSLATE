@@ -385,9 +385,11 @@ public sealed class DlssEnablerViewModel : ObservableObject
         // Avertissement si le jeu n'a pas l'air de supporter le DLSS : inutile d'installer.
         var compat = _service.GetCompatibility(game.InstallDir);
         var compatWarning = compat.Level == DlssCompatibility.Unlikely
-            ? "\n\n⛔ ATTENTION : aucun composant DLSS/FSR/XeSS n'a été trouvé dans ce jeu. " +
-              "DLSS Enabler n'AJOUTE PAS le DLSS à un jeu qui n'en a pas — il ne fait que " +
-              "l'activer là où il existe déjà. L'installer ici n'aura très probablement AUCUN effet."
+            ? "\n\n🟡 Aucun composant DLSS/FSR/XeSS connu n'a été trouvé dans ce jeu. Cette " +
+              "vérification a ses limites (certains jeux rangent ces fichiers ailleurs, ou ne " +
+              "les installent qu'au premier lancement) : si vous savez que ce jeu supporte le " +
+              "DLSS, vous pouvez installer normalement. Sinon, DLSS Enabler n'AJOUTE PAS le DLSS " +
+              "à un jeu qui n'en a pas — l'installation reste sans risque et réversible."
             : compat.Level == DlssCompatibility.Maybe
                 ? "\n\n🟡 Pas de DLSS natif détecté, mais un upscaler FSR/XeSS est présent : " +
                   "le mod peut aider (Frame Generation), sans garantie."
