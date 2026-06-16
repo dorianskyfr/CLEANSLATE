@@ -9,6 +9,14 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.3.7 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Bibliothèque : « 📥 Importer une source (JSON) » — chargez un fichier JSON\n" +
+        "  listant des ressources et téléchargez-les en HTTPS direct, avec progression,\n" +
+        "  vérification SHA-256 optionnelle et gestion d'erreurs. Les liens magnet/\n" +
+        "  torrent sont ignorés : seuls les téléchargements HTTPS directs sont gérés.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.3.6 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Bibliothèque : recherche mondiale — tapez un titre pour parcourir TOUS les\n" +

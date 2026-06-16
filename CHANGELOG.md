@@ -1,3 +1,10 @@
+## v1.3.7
+
+### Nouveautés
+- 📥 **Bibliothèque : gestionnaire de téléchargements par source JSON** : un bouton **« 📥 Importer une source (JSON) »** charge un fichier JSON listant des ressources (`name`, `url`, `category`, `sha256`), les affiche dans la grille et permet de les **télécharger en HTTPS direct** avec barre de progression, **vérification d'intégrité SHA-256** optionnelle, ouverture/installation automatique et gestion des erreurs (lien officiel de repli). **Sécurité par conception** : l'analyseur n'accepte que des URLs `http(s)` directes — les liens **magnet/torrent sont ignorés**, CleanSlate ne pilote aucun client pair-à-pair.
+
+---
+
 ## v1.3.6
 
 ### Nouveautés

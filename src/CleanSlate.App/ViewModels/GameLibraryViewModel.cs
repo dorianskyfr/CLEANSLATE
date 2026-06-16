@@ -2,19 +2,21 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using CleanSlate.Core.Modules;
 using CleanSlate.App.Infrastructure;
 
 namespace CleanSlate.App.ViewModels;
 
 /// <summary>Origine d'une tuile de bibliothèque (détermine l'action du bouton principal).</summary>
-public enum GameTileKind { Installed, Catalog, OpenSource }
+public enum GameTileKind { Installed, Catalog, OpenSource, Download }
 
 /// <summary>
-/// Tuile de jeu dans la bibliothèque. Trois origines possibles :
+/// Tuile de jeu dans la bibliothèque. Origines possibles :
 ///  • un jeu INSTALLÉ (Steam/Epic/Game Pass) → bouton « ▶ Lancer » ;
 ///  • un jeu du CATALOGUE mondial Steam → bouton « 🛒 Voir sur Steam » (page officielle) ;
-///  • un jeu OPEN-SOURCE → bouton « ⬇️ Télécharger » (binaire officiel HTTPS).
+///  • un jeu OPEN-SOURCE → bouton « ⬇️ Télécharger » (binaire officiel HTTPS) ;
+///  • une ressource d'une SOURCE JSON utilisateur → bouton « ⬇️ Télécharger » (URL directe HTTPS).
 /// </summary>
 public sealed class GameLibraryTile : ObservableObject
 {
@@ -54,15 +56,25 @@ public sealed class GameLibraryTile : ObservableObject
     public static GameLibraryTile ForOpenSource(OpenSourceGame game) =>
         new(game.Name, null)
         {
-            Kind           = GameTileKind.OpenSource,
-            OpenSourceGame = game,
-            SourceBadge    = "Open-source",
+            Kind        = GameTileKind.OpenSource,
+            SourceBadge = "Open-source",
+            DownloadUrl = game.DownloadUrl,
+            OfficialUrl = game.OfficialUrl,
+        };
+
+    /// <summary>Tuile pour une ressource d'une source JSON utilisateur (URL directe HTTPS).</summary>
+    public static GameLibraryTile ForDownload(DownloadResource res) =>
+        new(res.Name, null)
+        {
+            Kind        = GameTileKind.Download,
+            SourceBadge = string.IsNullOrWhiteSpace(res.Category) ? "Téléchargement" : res.Category!,
+            DownloadUrl = res.Url,
+            Sha256      = res.Sha256,
         };
 
     public GameTileKind   Kind           { get; private init; }
     public InstalledGame? InstalledGame  { get; private init; }
     public CatalogGame?   CatalogGame    { get; private init; }
-    public OpenSourceGame? OpenSourceGame { get; private init; }
 
     public string Name        { get; }
     public string SourceBadge { get; private init; } = "Steam";
@@ -71,12 +83,21 @@ public sealed class GameLibraryTile : ObservableObject
     public string InstallDir  => InstalledGame?.InstallDir ?? string.Empty;
     public string? StoreUrl   => CatalogGame?.StoreUrl;
 
+    /// <summary>URL de téléchargement direct HTTPS (jeux open-source et ressources de sources JSON).</summary>
+    public string? DownloadUrl { get; private init; }
+    /// <summary>Somme de contrôle SHA-256 attendue (optionnelle), pour vérifier l'intégrité.</summary>
+    public string? Sha256      { get; private init; }
+    /// <summary>Page officielle du projet (repli si le téléchargement échoue).</summary>
+    public string? OfficialUrl { get; private init; }
+
+    public bool IsDownloadable => Kind is GameTileKind.OpenSource or GameTileKind.Download;
+
     /// <summary>Libellé du bouton d'action principal selon l'origine de la tuile.</summary>
     public string ActionLabel => Kind switch
     {
-        GameTileKind.Installed  => "▶ Lancer",
-        GameTileKind.OpenSource => "⬇️ Télécharger",
-        _                       => "🛒 Voir sur Steam",
+        GameTileKind.Installed => "▶ Lancer",
+        GameTileKind.Catalog   => "🛒 Voir sur Steam",
+        _                      => "⬇️ Télécharger",
     };
 
     public bool IsGamePass => InstalledGame?.Source == "Xbox Game Pass";
@@ -134,13 +155,15 @@ public sealed class GameLibraryViewModel : ObservableObject
         _downloader  = downloader;
         _dialogs     = dialogs;
 
-        ScanCommand          = new AsyncRelayCommand(ScanAsync);
+        ScanCommand           = new AsyncRelayCommand(ScanAsync);
         ShowOpenSourceCommand = new RelayCommand(ShowOpenSource);
-        PrimaryActionCommand = new RelayCommand<GameLibraryTile>(PrimaryAction);
+        ImportSourceCommand   = new RelayCommand(ImportSource);
+        PrimaryActionCommand  = new RelayCommand<GameLibraryTile>(PrimaryAction);
     }
 
     public AsyncRelayCommand              ScanCommand           { get; }
     public RelayCommand                   ShowOpenSourceCommand { get; }
+    public RelayCommand                   ImportSourceCommand   { get; }
     public RelayCommand<GameLibraryTile>  PrimaryActionCommand  { get; }
 
     /// <summary>Tuiles affichées (jeux installés, ou résultats de recherche du catalogue).</summary>
@@ -291,6 +314,45 @@ public sealed class GameLibraryViewModel : ObservableObject
         Status = $"{tiles.Count} jeux open-source — ⬇️ pour télécharger le binaire officiel et l'installer.";
     }
 
+    // ---------------------------------------------- Source JSON utilisateur ----
+
+    /// <summary>
+    /// Importe un fichier « source » JSON listant des ressources à télécharger en HTTPS
+    /// direct, et affiche celles-ci dans la grille. Les liens magnet/torrent éventuels
+    /// sont volontairement ignorés par l'analyseur : CleanSlate ne télécharge que des
+    /// fichiers via des URLs http(s) directes.
+    /// </summary>
+    private void ImportSource()
+    {
+        _searchCts?.Cancel();
+
+        var file = _dialogs.PickFile("Importer une source de téléchargements (JSON)",
+            "Fichiers JSON|*.json|Tous les fichiers|*.*");
+        if (string.IsNullOrEmpty(file)) return;
+
+        IReadOnlyList<DownloadResource> resources;
+        try
+        {
+            resources = DownloadSourceParser.Parse(File.ReadAllText(file));
+        }
+        catch (Exception ex)
+        {
+            _dialogs.Warn("Source invalide", $"Impossible de lire « {Path.GetFileName(file)} ».\n{ex.Message}");
+            return;
+        }
+
+        if (resources.Count == 0)
+        {
+            Status = "Aucune ressource HTTPS directe trouvée dans cette source " +
+                     "(les liens magnet/torrent sont ignorés).";
+            Replace(Array.Empty<GameLibraryTile>());
+            return;
+        }
+
+        Replace(resources.Select(GameLibraryTile.ForDownload).ToList());
+        Status = $"{resources.Count} ressource(s) importée(s) depuis « {Path.GetFileName(file)} » — ⬇️ pour télécharger.";
+    }
+
     // --------------------------------------------------------------- Actions ----
 
     private void PrimaryAction(GameLibraryTile? tile)
@@ -298,43 +360,67 @@ public sealed class GameLibraryViewModel : ObservableObject
         if (tile is null) return;
         switch (tile.Kind)
         {
-            case GameTileKind.Installed:  LaunchGame(tile); break;
-            case GameTileKind.OpenSource: _ = DownloadOpenSourceAsync(tile); break;
-            default:                      OpenStore(tile); break;
+            case GameTileKind.Installed: LaunchGame(tile); break;
+            case GameTileKind.Catalog:   OpenStore(tile);  break;
+            default:                     _ = DownloadAsync(tile); break; // OpenSource + Download
         }
     }
 
-    private async Task DownloadOpenSourceAsync(GameLibraryTile tile)
+    private async Task DownloadAsync(GameLibraryTile tile)
     {
-        var game = tile.OpenSourceGame;
-        if (game is null || IsBusy) return;
+        if (string.IsNullOrEmpty(tile.DownloadUrl) || IsBusy) return;
 
         IsBusy = true;
-        Status = $"⬇️ Téléchargement de « {game.Name} »…";
+        Status = $"⬇️ Téléchargement de « {tile.Name} »…";
         try
         {
             var progress = new Progress<double>(pct =>
-                Status = $"⬇️ Téléchargement de « {game.Name} »… {pct:0} %");
+                Status = $"⬇️ Téléchargement de « {tile.Name} »… {pct:0} %");
 
-            var suggested = SanitizeName(game.Name) + ".exe";
-            var path = await _downloader.DownloadAsync(game.DownloadUrl, suggested, progress, CancellationToken.None);
+            var suggested = SanitizeName(tile.Name) + ".exe";
+            var path = await _downloader.DownloadAsync(tile.DownloadUrl!, suggested, progress, CancellationToken.None);
 
-            Status = $"✅ « {game.Name} » téléchargé. Lancement de l'installation…";
+            // Vérification d'intégrité si une somme SHA-256 est fournie par la source.
+            if (!string.IsNullOrWhiteSpace(tile.Sha256))
+            {
+                Status = $"🔒 Vérification de l'intégrité de « {tile.Name} »…";
+                var actual = await ComputeSha256Async(path);
+                if (!string.Equals(actual, tile.Sha256!.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Delete(path); } catch { }
+                    Status = $"❌ Somme de contrôle incorrecte pour « {tile.Name} » — fichier supprimé.";
+                    _dialogs.Warn("Intégrité non vérifiée",
+                        $"La somme SHA-256 du fichier téléchargé ne correspond pas à celle annoncée " +
+                        $"par la source. Le fichier a été supprimé par précaution.\n\n" +
+                        $"Attendu : {tile.Sha256}\nObtenu  : {actual}");
+                    return;
+                }
+            }
 
-            // Installation/ouverture automatique du binaire récupéré.
+            Status = $"✅ « {tile.Name} » téléchargé. Ouverture du fichier…";
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            Status = $"Échec du téléchargement de « {game.Name} ».";
+            Status = $"Échec du téléchargement de « {tile.Name} ».";
+            var fallback = string.IsNullOrEmpty(tile.OfficialUrl)
+                ? string.Empty
+                : $"\n\nVous pouvez le récupérer directement ici :\n{tile.OfficialUrl}";
             _dialogs.Warn("Téléchargement impossible",
-                $"Impossible de télécharger « {game.Name} ».\n{ex.Message}\n\n" +
-                $"Vous pouvez le récupérer directement sur le site officiel :\n{game.OfficialUrl}");
+                $"Impossible de télécharger « {tile.Name} ».\n{ex.Message}{fallback}");
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private static async Task<string> ComputeSha256Async(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        using var sha = SHA256.Create();
+        var hash = await sha.ComputeHashAsync(stream);
+        return Convert.ToHexString(hash);
     }
 
     private static string SanitizeName(string name)

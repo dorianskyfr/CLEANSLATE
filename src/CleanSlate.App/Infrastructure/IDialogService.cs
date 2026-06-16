@@ -14,4 +14,10 @@ public interface IDialogService
 
     /// <summary>Ouvre un sélecteur de dossier. Renvoie null si l'utilisateur annule.</summary>
     string? PickFolder(string title);
+
+    /// <summary>
+    /// Ouvre un sélecteur de fichier. <paramref name="filter"/> suit la syntaxe Win32
+    /// (« JSON|*.json|Tous|*.* »). Renvoie null si l'utilisateur annule.
+    /// </summary>
+    string? PickFile(string title, string filter);
 }

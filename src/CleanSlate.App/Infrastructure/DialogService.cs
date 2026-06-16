@@ -20,4 +20,10 @@ public sealed class DialogService : IDialogService
         var dialog = new Microsoft.Win32.OpenFolderDialog { Title = title };
         return dialog.ShowDialog() == true ? dialog.FolderName : null;
     }
+
+    public string? PickFile(string title, string filter)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Title = title, Filter = filter, CheckFileExists = true };
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
 }

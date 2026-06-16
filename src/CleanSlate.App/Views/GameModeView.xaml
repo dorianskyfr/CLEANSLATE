@@ -22,9 +22,10 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- Barre d'actions : scan + open-source + recherche mondiale -->
+                    <!-- Barre d'actions : scan + open-source + import source + recherche mondiale -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -36,7 +37,11 @@
                                 Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                 Command="{Binding ShowOpenSourceCommand}"
                                 ToolTip="Jeux libres téléchargeables depuis leurs dépôts officiels (légal)." />
-                        <Grid Grid.Column="2" Margin="8,0,0,0">
+                        <Button Grid.Column="2" Content="📥 Importer une source (JSON)"
+                                Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                Command="{Binding ImportSourceCommand}"
+                                ToolTip="Charge un JSON de ressources à télécharger en HTTPS direct (les liens magnet/torrent sont ignorés)." />
+                        <Grid Grid.Column="3" Margin="8,0,0,0">
                             <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" VerticalContentAlignment="Center" />
                             <TextBlock Text="🔎 Rechercher parmi tous les jeux du monde…" Margin="12,0,0,0"
