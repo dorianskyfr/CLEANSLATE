@@ -1,3 +1,15 @@
+## v1.3.0
+
+### Nouveautés
+- 🧩 **Mode Jeu : suspension d'applications repensée** : fini le champ de texte — la liste des applications à suspendre est maintenant une **liste à cocher, groupée par catégorie** (stockage cloud, lanceurs de jeux, messageries, accès distant, RGB, navigateurs…), avec une **note explicative** sur chaque app. Trois **profils prêts à l'emploi** : **🍃 Léger** (synchro cloud / mises à jour seulement), **⚖️ Équilibré** (recommandé : + messageries, lecteurs, lanceurs, assistants) et **🔥 Agressif** (+ navigateurs et logiciels RGB, gain maximal). Votre sélection est mémorisée d'une session à l'autre. Discord n'est jamais touché (vocal possible).
+- 🎛️ **Overclocking : import depuis MSI Afterburner** : un bouton **« 📥 Importer depuis MSI Afterburner »** reprend l'offset cœur/mémoire (et la limite de puissance/température) de votre profil Afterburner existant directement dans le mode « Personnalisé » de CleanSlate — les valeurs sont ajustées aux bornes sûres de votre carte si besoin.
+
+### Corrections
+- 🐛 **DLSS Enabler : « Unreal Engine » n'est plus listé comme un jeu** : l'entrée du moteur Unreal Engine (et l'éditeur, les composants UE_…) du launcher Epic Games est désormais filtrée — seuls les vrais jeux apparaissent.
+- 🖼️ **Plus de jaquettes trouvées** : le nom des jeux est nettoyé avant la recherche d'image (suppression de « Launcher », des symboles ™/®, des mentions d'édition « Bedrock/Java Edition », « Deluxe »…), ce qui permet de retrouver la jaquette de beaucoup plus de jeux hors Steam (Epic, Game Pass). *(Note : certains jeux comme Minecraft ne sont vendus sur aucune boutique PC indexée — la tuile garde alors son visuel de repli.)*
+
+---
+
 ## v1.2.7
 
 ### Corrections

@@ -15,32 +15,12 @@ public sealed class GameModeOptions
     /// <summary>
     /// Liste blanche par défaut : applications d'arrière-plan courantes, non
     /// critiques, sûres à suspendre pendant une session de jeu. JAMAIS de
-    /// processus système.
+    /// processus système. Dérivée du profil « Équilibré » du catalogue partagé
+    /// (<see cref="SuspendCatalog"/>) pour rester cohérente avec l'interface.
     /// </summary>
     public static GameModeOptions Default => new()
     {
-        ProcessNamesToSuspend = new[]
-        {
-            // ─── Stockage cloud ────────────────────────────────────────
-            "OneDrive", "Dropbox", "GoogleDriveFS",
-            // ─── Communication (Discord exclu — vocal possible) ────────
-            "Spotify",
-            "Slack", "Teams", "ms-teams",
-            "Skype", "Telegram", "WhatsApp", "Zoom",
-            // ─── Accès distant ─────────────────────────────────────────
-            "AnyDesk", "TeamViewer",
-            // ─── Lanceurs de jeux inactifs ─────────────────────────────
-            "EpicGamesLauncher", "EpicWebHelper",
-            "GalaxyClient",           // GOG Galaxy
-            "upc", "UbisoftConnect",  // Ubisoft Connect
-            "Origin", "EADesktop",    // EA App
-            // ─── Suite Adobe helpers ───────────────────────────────────
-            "CCLibrary", "AdobeIPCBroker",
-            // ─── Divers arrière-plan Windows ──────────────────────────
-            "Cortana", "SearchApp",
-            "yourphone",              // Lien téléphone Microsoft
-            "WinStore.App",           // Microsoft Store
-        },
+        ProcessNamesToSuspend = SuspendCatalog.ProcessesFor(SuspendTier.Equilibre),
         ServiceNamesToStop = new[]
         {
             "WSearch",    // Indexation Windows Search — réduit la charge disque

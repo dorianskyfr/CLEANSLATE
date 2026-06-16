@@ -19,34 +19,70 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
-                            <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="700" />
+                            <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="760" />
                         </StackPanel>
                     </Border>
 
+                    <!-- Profils prêts à l'emploi -->
                     <StackPanel Grid.Row="1" Margin="0,16,0,0">
-                        <TextBlock Text="Applications suspendues lors de l'activation :"
-                                   Style="{StaticResource MutedText}" />
-                        <TextBlock Text="{Binding SuspendedAppsList}" Foreground="{DynamicResource TextBrush}"
-                                   TextWrapping="Wrap" Margin="0,4,0,0" />
-
-                        <!-- Applications personnalisées (persistées entre les sessions) -->
-                        <TextBlock Text="Vos applications à suspendre en plus (noms de processus, séparés par des virgules) :"
-                                   Style="{StaticResource MutedText}" Margin="0,14,0,0" />
-                        <TextBox Text="{Binding CustomProcessesText, UpdateSourceTrigger=LostFocus}"
-                                 Padding="8,6" Margin="0,6,0,0" MaxWidth="700" HorizontalAlignment="Left"
-                                 MinWidth="420" ToolTip="Exemple : firefox, obs64, Notion" />
+                        <TextBlock Text="Profils prêts à l'emploi (vous pouvez ensuite ajuster la liste) :"
+                                   Style="{StaticResource MutedText}" Margin="0,0,0,8" />
+                        <WrapPanel>
+                            <Button Content="🍃 Léger" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                    Command="{Binding ApplyLightProfileCommand}"
+                                    ToolTip="Synchro cloud, mises à jour, accès distant — aucun impact sur l'usage courant." />
+                            <Button Content="⚖️ Équilibré (recommandé)" Style="{StaticResource AccentButton}" Margin="0,0,8,0"
+                                    Command="{Binding ApplyBalancedProfileCommand}"
+                                    ToolTip="+ messageries, lecteurs multimédia, lanceurs de jeux, assistants Windows." />
+                            <Button Content="🔥 Agressif" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding ApplyAggressiveProfileCommand}"
+                                    ToolTip="+ navigateurs et logiciels RGB — gain maximal (gèle les onglets/effets RGB)." />
+                        </WrapPanel>
                     </StackPanel>
 
-                    <StackPanel Grid.Row="2" Margin="0,20,0,0">
+                    <!-- Liste à cocher, groupée par catégorie -->
+                    <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                            Padding="6" Margin="0,16,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding AppsView}">
+                                <ItemsControl.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.HeaderTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" FontWeight="Bold"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           FontSize="13" Margin="8,12,0,4" />
+                                            </DataTemplate>
+                                        </GroupStyle.HeaderTemplate>
+                                    </GroupStyle>
+                                </ItemsControl.GroupStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsChecked}" Margin="10,3,0,3">
+                                            <StackPanel Margin="6,0,0,0">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           Foreground="{DynamicResource TextBrush}" FontSize="13" />
+                                                <TextBlock Text="{Binding Note}" FontSize="11" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource MutedBrush}" MaxWidth="640" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <StackPanel Grid.Row="3" Margin="0,14,0,0">
+                        <TextBlock Text="{Binding SelectionSummary}" Style="{StaticResource MutedText}" />
                         <TextBlock Text="{Binding Status}" Foreground="{DynamicResource AccentBrush}"
-                                   FontWeight="SemiBold" FontSize="14" />
+                                   FontWeight="SemiBold" FontSize="14" Margin="0,6,0,0" TextWrapping="Wrap" />
                         <Button Content="{Binding ToggleLabel}" Style="{StaticResource AccentButton}"
                                 HorizontalAlignment="Left" Margin="0,12,0,0"
                                 Command="{Binding ToggleCommand}" />
@@ -182,8 +218,19 @@
                                 <!-- Mode personnalisé : curseurs pour fixer ses propres valeurs (bornes sûres) -->
                                 <StackPanel Margin="0,14,0,0"
                                             Visibility="{Binding IsCustomMode, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="🎛️ Réglages personnalisés (curseurs bornés pour rester sûr) :"
-                                               Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="🎛️ Réglages personnalisés (curseurs bornés pour rester sûr) :"
+                                                   Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Column="1" Content="📥 Importer depuis MSI Afterburner"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Command="{Binding ImportAfterburnerCommand}"
+                                                ToolTip="Reprend l'offset cœur/mémoire du profil MSI Afterburner installé." />
+                                    </Grid>
 
                                     <Grid Margin="0,2,0,0">
                                         <Grid.ColumnDefinitions>

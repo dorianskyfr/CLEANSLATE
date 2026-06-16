@@ -39,6 +39,7 @@ public sealed class OverclockingViewModel : ObservableObject
         _dialogs = dialogs;
 
         RefreshCommand           = new RelayCommand(DetectGpus, () => !IsBusy);
+        ImportAfterburnerCommand = new RelayCommand(ImportAfterburner, () => HasCustomLimits);
         CopyProfileCommand       = new RelayCommand(CopyProfile, () => SelectedProfile is { Actionable: true });
         ApplyCommand             = new AsyncRelayCommand(ApplyAsync, () => SelectedProfile is { Actionable: true } && CanAutoApply && !IsBusy);
         ResetCommand             = new AsyncRelayCommand(ResetAsync, () => CanAutoApply && !IsBusy);
@@ -52,6 +53,7 @@ public sealed class OverclockingViewModel : ObservableObject
     public ObservableCollection<OverclockProfile> Profiles { get; } = new();
 
     public RelayCommand RefreshCommand            { get; }
+    public RelayCommand ImportAfterburnerCommand  { get; }
     public RelayCommand CopyProfileCommand        { get; }
     public AsyncRelayCommand ApplyCommand         { get; }
     public AsyncRelayCommand ResetCommand         { get; }
@@ -238,6 +240,7 @@ public sealed class OverclockingViewModel : ObservableObject
         OnPropertyChanged(nameof(MemMin));   OnPropertyChanged(nameof(MemMax));
         OnPropertyChanged(nameof(PowerMin)); OnPropertyChanged(nameof(PowerMax));
         OnPropertyChanged(nameof(TempMin));  OnPropertyChanged(nameof(TempMax));
+        ImportAfterburnerCommand.RaiseCanExecuteChanged();
     }
 
     private void RaiseCustomValuesChanged()
@@ -381,6 +384,49 @@ public sealed class OverclockingViewModel : ObservableObject
         OnPropertyChanged(nameof(CanOpenLatestDriver));
         OnPropertyChanged(nameof(OpenLatestDriverLabel));
         OpenLatestDriverCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Importe le profil d'overclock actuel de MSI Afterburner (s'il est installé) dans
+    /// les curseurs du mode « Personnalisé ». Bascule sur ce mode au besoin, puis pose
+    /// les valeurs (bornées par les limites sûres de la carte).
+    /// </summary>
+    private void ImportAfterburner()
+    {
+        if (!HasCustomLimits)
+        {
+            _dialogs.Warn("Import MSI Afterburner",
+                "L'import n'est disponible que pour les cartes réglables par offset MHz (NVIDIA, AMD…).");
+            return;
+        }
+
+        AfterburnerImport? import;
+        try { import = _advisor.TryImportAfterburnerProfile(); }
+        catch (Exception ex) { _dialogs.Warn("Import MSI Afterburner", ex.Message); return; }
+
+        if (import is null)
+        {
+            _dialogs.Warn("Import MSI Afterburner",
+                "Aucun profil MSI Afterburner exploitable n'a été trouvé.\n\n" +
+                "Vérifiez que MSI Afterburner est installé et qu'au moins un profil contient " +
+                "un offset cœur ou mémoire (Core/Memory Clock) non nul.");
+            return;
+        }
+
+        // Bascule sur le profil « Personnalisé » pour que les curseurs soient visibles.
+        var custom = Profiles.FirstOrDefault(p => p.IsCustom);
+        if (custom is not null && !ReferenceEquals(SelectedProfile, custom))
+            SelectedProfile = custom;
+
+        CustomCore   = import.CoreOffsetMhz;
+        CustomMemory = import.MemoryOffsetMhz;
+        if (import.PowerLimitPercent > 0) CustomPower = import.PowerLimitPercent;
+        if (import.TempLimitC > 0)        CustomTemp  = import.TempLimitC;
+        RaiseCustomValuesChanged();
+
+        Status = $"Profil MSI Afterburner « {import.SourceProfile} » importé : " +
+                 $"cœur {Signed(CustomCore)} MHz, mémoire {Signed(CustomMemory)} MHz " +
+                 "(valeurs ajustées aux bornes sûres si besoin). ✅";
     }
 
     private void CopyProfile()

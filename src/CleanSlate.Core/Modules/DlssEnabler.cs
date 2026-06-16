@@ -330,10 +330,21 @@ public sealed class DlssEnablerService : IDlssEnablerService
             try { (name, dir) = ParseEpicManifest(File.ReadAllText(file)); }
             catch { }
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(dir)) continue;
+            if (IsEpicTooling(name)) continue; // « Unreal Engine », plugins… ne sont pas des jeux
             if (Directory.Exists(dir))
                 yield return new InstalledGame(name, dir, "Epic Games");
         }
     }
+
+    /// <summary>
+    /// Entrées du launcher Epic qui ne sont pas des jeux : le moteur Unreal Engine et
+    /// ses composants (l'éditeur, les templates), à exclure de la bibliothèque.
+    /// </summary>
+    internal static bool IsEpicTooling(string name) =>
+        name.StartsWith("Unreal Engine", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Unreal Editor", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("Epic Games Launcher", StringComparison.OrdinalIgnoreCase) ||
+        name.StartsWith("UE_", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Extrait (DisplayName, InstallLocation) d'un manifeste .item Epic Games.</summary>
     internal static (string? Name, string? InstallDir) ParseEpicManifest(string json)
@@ -710,20 +721,49 @@ public sealed class DlssEnablerService : IDlssEnablerService
 
     public async Task<string?> ResolveCoverUrlAsync(string gameName, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(gameName)) return null;
+        var term = NormalizeForSearch(gameName);
+        if (string.IsNullOrWhiteSpace(term)) return null;
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
             http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-DlssEnabler");
 
             var url = "https://store.steampowered.com/api/storesearch/?cc=us&l=en&term=" +
-                      Uri.EscapeDataString(gameName);
+                      Uri.EscapeDataString(term);
             var result = await http.GetFromJsonAsync<StoreSearchResult>(url, ct).ConfigureAwait(false);
 
             var appId = result?.Items?.FirstOrDefault(i => i.Id > 0)?.Id;
             return appId is > 0 ? SteamCoverUrl(appId.Value.ToString()) : null;
         }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Nettoie le nom d'un jeu pour maximiser les chances de correspondance avec la
+    /// recherche du magasin Steam : retire les suffixes de lanceur (« Launcher »), les
+    /// symboles de marque (™ ®), les mentions d'édition (Bedrock/Java Edition, Deluxe…)
+    /// et les espaces superflus. Les jeux hors Steam (Epic, Game Pass) ont souvent un
+    /// nom de dossier décoré qui empêche sinon toute correspondance.
+    /// </summary>
+    internal static string NormalizeForSearch(string gameName)
+    {
+        if (string.IsNullOrWhiteSpace(gameName)) return string.Empty;
+
+        var s = gameName.Replace("™", " ").Replace("®", " ").Replace("©", " ");
+
+        // Suffixes de lanceur / d'édition fréquents qui ne font pas partie du titre.
+        string[] noise =
+        {
+            "Launcher", "Bedrock Edition", "Java Edition", "Game Preview",
+            "Definitive Edition", "Deluxe Edition", "Ultimate Edition",
+            "Complete Edition", "Game of the Year Edition", "GOTY",
+            "Standard Edition", "Remastered", "for Windows 10", "Windows Edition",
+        };
+        foreach (var n in noise)
+            s = Regex.Replace(s, Regex.Escape(n), " ", RegexOptions.IgnoreCase);
+
+        s = Regex.Replace(s, @"\s+", " ").Trim(' ', '-', ':', '–');
+        return s;
     }
 
     private sealed class StoreSearchResult
