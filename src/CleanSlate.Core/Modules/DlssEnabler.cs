@@ -136,6 +136,12 @@ public interface IDlssEnablerService
 
     /// <summary>Désinstalle le mod du dossier du jeu. Renvoie false si rien n'a pu être retiré.</summary>
     Task<bool> UninstallAsync(string gameDir, CancellationToken ct);
+
+    /// <summary>
+    /// Trouve le chemin de l'exécutable principal d'un jeu dans son dossier d'installation.
+    /// Retourne null si aucun exécutable n'est trouvé.
+    /// </summary>
+    string? FindMainExecutable(string installDir);
 }
 
 [SupportedOSPlatform("windows")]
@@ -968,5 +974,18 @@ public sealed class DlssEnablerService : IDlssEnablerService
             return true;
         }
         catch { return false; }
+    }
+
+    public string? FindMainExecutable(string installDir)
+    {
+        var exeDir = ResolveInstallDir(installDir);
+        try
+        {
+            return Directory.EnumerateFiles(exeDir, "*.exe")
+                .Where(f => !IsHelperExecutable(f))
+                .OrderByDescending(f => { try { return new FileInfo(f).Length; } catch { return 0L; } })
+                .FirstOrDefault();
+        }
+        catch { return null; }
     }
 }

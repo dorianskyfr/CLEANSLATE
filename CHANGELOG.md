@@ -1,3 +1,13 @@
+## v1.3.5
+
+### Nouveautés
+- 🎮 **Hydra Launcher — bibliothèque de jeux intégrée** : un nouvel onglet **« 🎮 Bibliothèque »** dans le Mode Jeu liste tous vos jeux installés (Steam, Epic Games, Xbox Game Pass), affiche leurs jaquettes et permet de **lancer n'importe quel jeu directement** depuis CleanSlate. Même infrastructure de scan que le DLSS Enabler — aucune configuration supplémentaire.
+
+### Corrections
+- 🐛 **VRAM réelle sur les cartes ≥ 4 Go** : la VRAM affichée dans l'onglet Overclocking était erronée sur toutes les cartes de 8 Go et plus (ex. RTX 3070, 3080, 4080…). WMI `AdapterRAM` est une valeur 32 bits qui sature à 4 294 967 295 octets (~4 Go) pour tout GPU ayant au moins 4 Go de VRAM. CleanSlate détecte désormais ce dépassement et lit la vraie VRAM 64 bits depuis le registre Windows (`HardwareInformation.qwMemorySize`).
+
+---
+
 ## v1.3.0
 
 ### Nouveautés

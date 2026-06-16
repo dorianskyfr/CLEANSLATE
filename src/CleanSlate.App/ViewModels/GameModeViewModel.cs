@@ -71,8 +71,9 @@ public sealed class GameModeViewModel : ObservableObject
         ApplyBalancedProfileCommand   = new RelayCommand(() => ApplyProfile(SuspendTier.Equilibre));
         ApplyAggressiveProfileCommand = new RelayCommand(() => ApplyProfile(SuspendTier.Agressif));
 
-        Overclocking = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
-        DlssEnabler = new DlssEnablerViewModel(dlssEnabler, settings, dialogs);
+        Overclocking  = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
+        DlssEnabler   = new DlssEnablerViewModel(dlssEnabler, settings, dialogs);
+        GameLibrary   = new GameLibraryViewModel(dlssEnabler, dialogs);
 
         var loaded = settings.Load();
         _activeProfile = loaded.SuspendProfile;
@@ -99,6 +100,9 @@ public sealed class GameModeViewModel : ObservableObject
 
     /// <summary>Sous-catégorie « DLSS Enabler » (gestionnaire du mod, par jeu).</summary>
     public DlssEnablerViewModel DlssEnabler { get; }
+
+    /// <summary>Sous-catégorie « Bibliothèque Hydra Launcher » (scan + lancement direct des jeux).</summary>
+    public GameLibraryViewModel GameLibrary { get; }
 
     /// <summary>Applications à cocher (groupées par catégorie dans la vue).</summary>
     public ObservableCollection<SuspendAppItem> SuspendApps { get; } = new();

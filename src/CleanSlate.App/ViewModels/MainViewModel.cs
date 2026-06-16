@@ -9,6 +9,16 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.3.5 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Mode Jeu : nouvel onglet « 🎮 Bibliothèque » — Hydra Launcher intégré.\n" +
+        "  Détecte tous vos jeux (Steam / Epic / Xbox Game Pass), affiche les jaquettes\n" +
+        "  et lance n'importe quel jeu d'un clic, sans quitter CleanSlate.\n" +
+        "• Overclocking : correction de l'affichage de la VRAM sur les cartes ≥ 4 Go\n" +
+        "  (RTX 3070, 4080…). WMI retournait 4 Go à cause d'un dépassement 32 bits ;\n" +
+        "  CleanSlate lit désormais la vraie valeur 64 bits depuis le registre Windows.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.3.0 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Mode Jeu : suspension d'applications repensée — liste à COCHER\n" +

@@ -1,5 +1,6 @@
 using System.Management;
 using System.Runtime.Versioning;
+using Microsoft.Win32;
 
 namespace CleanSlate.Core.Modules;
 
@@ -122,7 +123,22 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
                 var vendor = DetectVendor(name + " " + compat);
 
                 long vram = 0;
-                try { vram = Convert.ToInt64(obj["AdapterRAM"] ?? 0L); } catch { /* certains pilotes renvoient 0 */ }
+                try
+                {
+                    var raw = obj["AdapterRAM"];
+                    if (raw != null)
+                    {
+                        vram = Convert.ToInt64(raw);
+                        // WMI AdapterRAM is a UInt32 — caps at 0xFFFFFFFF (~4 GB) for any GPU ≥4 GB VRAM.
+                        // Fall back to the 64-bit registry value when the overflow is detected.
+                        if (vram == uint.MaxValue)
+                        {
+                            var regVram = TryGetVramFromRegistry(name!);
+                            if (regVram > 0) vram = regVram;
+                        }
+                    }
+                }
+                catch { /* certains pilotes renvoient 0 */ }
 
                 gpus.Add(new GpuInfo(
                     Name: name!,
@@ -477,6 +493,44 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
             || n.Contains(" idd")
             || n.StartsWith("idd")
             || n.Contains("spacedesk");
+    }
+
+    /// <summary>
+    /// Lit la VRAM réelle depuis le registre Windows (HardwareInformation.qwMemorySize, QWORD 64 bits).
+    /// Utilisé comme repli quand WMI AdapterRAM renvoie uint.MaxValue à cause du dépassement 32 bits.
+    /// </summary>
+    private static long TryGetVramFromRegistry(string gpuName)
+    {
+        try
+        {
+            const string classKey = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
+            using var root = Registry.LocalMachine.OpenSubKey(classKey);
+            if (root == null) return 0;
+
+            foreach (var subName in root.GetSubKeyNames())
+            {
+                using var sub = root.OpenSubKey(subName);
+                if (sub == null) continue;
+
+                var driverDesc = sub.GetValue("DriverDesc") as string;
+                if (string.IsNullOrEmpty(driverDesc)) continue;
+
+                if (!driverDesc.Contains(gpuName, StringComparison.OrdinalIgnoreCase) &&
+                    !gpuName.Contains(driverDesc, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var memVal = sub.GetValue("HardwareInformation.qwMemorySize");
+                long qword = memVal switch
+                {
+                    long l              => l,
+                    byte[] b when b.Length == 8 => BitConverter.ToInt64(b, 0),
+                    _                   => 0L
+                };
+                if (qword > 0) return qword;
+            }
+        }
+        catch { }
+        return 0;
     }
 
     // ------------------------------------------------- Import MSI Afterburner ----
