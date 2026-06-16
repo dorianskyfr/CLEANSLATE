@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows.Data;
 using CleanSlate.Core.Modules;
 using CleanSlate.App.Infrastructure;
@@ -166,7 +167,7 @@ public sealed class GameLibraryViewModel : ObservableObject
         if (tile == null) return;
 
         var exe = _dlssService.FindMainExecutable(tile.InstallDir);
-        if (exe == null || !File.Exists(exe))
+        if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
         {
             _dialogs.Warn("Lancement impossible",
                 $"L'exécutable principal de « {tile.Name} » est introuvable.\n" +
