@@ -54,6 +54,18 @@ public sealed record OverclockLimits(
     int TempMinC,    int TempMaxC);
 
 /// <summary>
+/// Réglages d'overclock importés depuis un profil MSI Afterburner (offsets en MHz,
+/// déjà convertis depuis les kHz du fichier .cfg). <paramref name="SourceProfile"/>
+/// indique le fichier d'origine pour information.
+/// </summary>
+public sealed record AfterburnerImport(
+    int CoreOffsetMhz,
+    int MemoryOffsetMhz,
+    int PowerLimitPercent,
+    int TempLimitC,
+    string SourceProfile);
+
+/// <summary>
 /// Module Overclocking (sous-catégorie du Mode Jeu).
 ///
 /// ⚠️ HONNÊTETÉ TECHNIQUE : il n'existe AUCUNE API Windows universelle, gratuite et
@@ -79,6 +91,13 @@ public interface IOverclockingAdvisor
     /// Renvoie null si le réglage manuel n'a pas de sens (iGPU non réglable, Intel boost).
     /// </summary>
     OverclockLimits? GetCustomLimits(GpuInfo gpu);
+
+    /// <summary>
+    /// Tente de lire le profil d'overclock actuel de MSI Afterburner (s'il est installé)
+    /// pour pré-remplir le mode « Personnalisé ». Renvoie null si Afterburner n'est pas
+    /// installé ou si aucun profil exploitable n'a été trouvé. Best-effort, sans exception.
+    /// </summary>
+    AfterburnerImport? TryImportAfterburnerProfile();
 }
 
 [SupportedOSPlatform("windows")]
@@ -458,5 +477,93 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
             || n.Contains(" idd")
             || n.StartsWith("idd")
             || n.Contains("spacedesk");
+    }
+
+    // ------------------------------------------------- Import MSI Afterburner ----
+
+    public AfterburnerImport? TryImportAfterburnerProfile()
+    {
+        try
+        {
+            var dir = FindAfterburnerProfilesDir();
+            if (dir is null) return null;
+
+            // On retient le profil le plus récemment modifié contenant un offset non nul
+            // (le plus susceptible d'être celui que l'utilisateur applique).
+            foreach (var cfg in Directory.EnumerateFiles(dir, "*.cfg")
+                         .OrderByDescending(f => { try { return File.GetLastWriteTimeUtc(f); } catch { return DateTime.MinValue; } }))
+            {
+                string content;
+                try { content = File.ReadAllText(cfg); } catch { continue; }
+
+                var import = ParseAfterburnerConfig(content, Path.GetFileNameWithoutExtension(cfg));
+                if (import is not null &&
+                    (import.CoreOffsetMhz != 0 || import.MemoryOffsetMhz != 0))
+                    return import;
+            }
+        }
+        catch { /* best effort */ }
+        return null;
+    }
+
+    /// <summary>Localise le dossier « Profiles » de MSI Afterburner, s'il est installé.</summary>
+    private static string? FindAfterburnerProfilesDir()
+    {
+        foreach (var pf in new[]
+                 {
+                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                 })
+        {
+            if (string.IsNullOrEmpty(pf)) continue;
+            var dir = Path.Combine(pf, "MSI Afterburner", "Profiles");
+            if (Directory.Exists(dir)) return dir;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Analyse un fichier de profil MSI Afterburner (format INI). Les offsets cœur et
+    /// mémoire (« CoreClkBoost » / « MemClkBoost ») sont stockés en kHz et convertis en
+    /// MHz ; « PowerLimit » et « ThermalLimit » sont en %/°C. Renvoie null si aucune de
+    /// ces clés n'est présente.
+    /// </summary>
+    internal static AfterburnerImport? ParseAfterburnerConfig(string content, string sourceName)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return null;
+
+        int? coreKHz = null, memKHz = null, power = null, temp = null;
+
+        foreach (var raw in content.Split('\n'))
+        {
+            var line = raw.Trim();
+            var eq = line.IndexOf('=');
+            if (eq <= 0) continue;
+
+            var key = line[..eq].Trim();
+            var val = line[(eq + 1)..].Trim();
+            if (!long.TryParse(val, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var num))
+                continue;
+
+            switch (key.ToLowerInvariant())
+            {
+                case "coreclkboost": coreKHz = (int)num; break;
+                case "memclkboost":  memKHz  = (int)num; break;
+                case "powerlimit":   power   = (int)num; break;
+                case "thermallimit": temp    = (int)num; break;
+            }
+        }
+
+        if (coreKHz is null && memKHz is null && power is null && temp is null)
+            return null;
+
+        // kHz → MHz (1000 kHz = 1 MHz). Afterburner stocke les offsets en kHz.
+        return new AfterburnerImport(
+            CoreOffsetMhz:    (coreKHz ?? 0) / 1000,
+            MemoryOffsetMhz:  (memKHz  ?? 0) / 1000,
+            PowerLimitPercent: power ?? 0,
+            TempLimitC:        temp  ?? 0,
+            SourceProfile:     sourceName);
     }
 }

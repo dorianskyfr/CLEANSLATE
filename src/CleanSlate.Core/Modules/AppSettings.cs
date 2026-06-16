@@ -25,6 +25,15 @@ public sealed record AppSettings
     /// <summary>Applications supplémentaires (noms de processus) à suspendre en Mode Jeu.</summary>
     public IReadOnlyList<string> CustomSuspendProcesses { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// Sélection explicite des applications à suspendre (noms de processus cochés dans
+    /// l'interface). Null = jamais personnalisé → on applique le profil par défaut.
+    /// </summary>
+    public IReadOnlyList<string>? SuspendSelection { get; init; }
+
+    /// <summary>Profil de suspension choisi (« Leger », « Equilibre », « Agressif »).</summary>
+    public string SuspendProfile { get; init; } = "Equilibre";
+
     /// <summary>Fournisseur DNS choisi pour le blocage de pub (id, ex. « adguard »).</summary>
     public string AdBlockProvider { get; init; } = "adguard";
 }

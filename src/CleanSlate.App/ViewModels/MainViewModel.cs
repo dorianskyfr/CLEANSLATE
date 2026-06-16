@@ -9,6 +9,18 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.3.0 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Mode Jeu : suspension d'applications repensée — liste à COCHER\n" +
+        "  groupée par catégorie, avec 3 profils prêts à l'emploi\n" +
+        "  (🍃 Léger / ⚖️ Équilibré / 🔥 Agressif). Sélection mémorisée.\n" +
+        "• Overclocking : bouton « 📥 Importer depuis MSI Afterburner » —\n" +
+        "  reprend votre offset cœur/mémoire dans le mode Personnalisé.\n" +
+        "• DLSS Enabler : « Unreal Engine » n'est plus listé comme un jeu.\n" +
+        "• Jaquettes : noms nettoyés avant recherche (Launcher, ™, éditions)\n" +
+        "  → beaucoup plus de jeux hors Steam affichent leur visuel.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.2.7 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• DLSS Enabler : correction de faux négatifs de compatibilité — la\n" +

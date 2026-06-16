@@ -148,6 +148,30 @@ public class DlssEnablerTests
         Assert.Equal(@"D:\Epic\AlanWake2", installDir);
     }
 
+    [Theory]
+    [InlineData("Unreal Engine", true)]
+    [InlineData("Unreal Engine 5.4", true)]
+    [InlineData("Unreal Editor", true)]
+    [InlineData("UE_5.3", true)]
+    [InlineData("Epic Games Launcher", true)]
+    [InlineData("Fortnite", false)]
+    [InlineData("Alan Wake 2", false)]
+    public void IsEpicTooling_FiltreLeMoteurPasLesJeux(string name, bool expected)
+    {
+        Assert.Equal(expected, DlssEnablerService.IsEpicTooling(name));
+    }
+
+    [Theory]
+    [InlineData("Minecraft Launcher", "Minecraft")]
+    [InlineData("Cyberpunk 2077™", "Cyberpunk 2077")]
+    [InlineData("DOOM Eternal: Deluxe Edition", "DOOM Eternal")]
+    [InlineData("The Witcher 3: Wild Hunt", "The Witcher 3: Wild Hunt")]
+    [InlineData("Minecraft for Windows 10", "Minecraft")]
+    public void NormalizeForSearch_NettoieLesSuffixesEtMarques(string input, string expected)
+    {
+        Assert.Equal(expected, DlssEnablerService.NormalizeForSearch(input));
+    }
+
     // ------------------------------------------------------------------
     //  Détection de l'état du mod dans un dossier de jeu
     // ------------------------------------------------------------------
