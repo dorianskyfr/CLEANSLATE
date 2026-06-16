@@ -59,6 +59,8 @@ public sealed class GameModeViewModel : ObservableObject
         IGpuOverclocker overclocker,
         IGpuDriverChecker driverChecker,
         IDlssEnablerService dlssEnabler,
+        IGameCatalogService gameCatalog,
+        IFileDownloadService fileDownloader,
         IAppSettingsService settings,
         IDialogService dialogs)
     {
@@ -73,7 +75,7 @@ public sealed class GameModeViewModel : ObservableObject
 
         Overclocking  = new OverclockingViewModel(overclockingAdvisor, overclocker, driverChecker, dialogs);
         DlssEnabler   = new DlssEnablerViewModel(dlssEnabler, settings, dialogs);
-        GameLibrary   = new GameLibraryViewModel(dlssEnabler, dialogs);
+        GameLibrary   = new GameLibraryViewModel(dlssEnabler, gameCatalog, fileDownloader, dialogs);
 
         var loaded = settings.Load();
         _activeProfile = loaded.SuspendProfile;

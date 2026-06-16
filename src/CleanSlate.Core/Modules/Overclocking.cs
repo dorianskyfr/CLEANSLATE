@@ -122,23 +122,21 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
                 var compat = (obj["AdapterCompatibility"] as string) ?? string.Empty;
                 var vendor = DetectVendor(name + " " + compat);
 
-                long vram = 0;
-                try
+                // La VRAM réelle est lue EN PRIORITÉ depuis le registre Windows
+                // (HardwareInformation.qwMemorySize, QWORD 64 bits) : WMI AdapterRAM est un
+                // UInt32 qui sature dès ~4 Go et reporte une valeur tronquée (souvent
+                // 4 293 918 720 octets = 4095 Mio, PAS exactement uint.MaxValue), ce qui
+                // faisait afficher « 4 Go » sur les cartes de 8/12/16 Go (RTX 3070, 4080…).
+                long vram = TryGetVramFromRegistry(name!);
+                if (vram <= 0)
                 {
-                    var raw = obj["AdapterRAM"];
-                    if (raw != null)
+                    try
                     {
-                        vram = Convert.ToInt64(raw);
-                        // WMI AdapterRAM is a UInt32 — caps at 0xFFFFFFFF (~4 GB) for any GPU ≥4 GB VRAM.
-                        // Fall back to the 64-bit registry value when the overflow is detected.
-                        if (vram == uint.MaxValue)
-                        {
-                            var regVram = TryGetVramFromRegistry(name!);
-                            if (regVram > 0) vram = regVram;
-                        }
+                        var raw = obj["AdapterRAM"];
+                        if (raw != null) vram = Convert.ToInt64(raw);
                     }
+                    catch { /* certains pilotes renvoient 0 */ }
                 }
-                catch { /* certains pilotes renvoient 0 */ }
 
                 gpus.Add(new GpuInfo(
                     Name: name!,
@@ -496,8 +494,9 @@ public sealed class OverclockingAdvisor : IOverclockingAdvisor
     }
 
     /// <summary>
-    /// Lit la VRAM réelle depuis le registre Windows (HardwareInformation.qwMemorySize, QWORD 64 bits).
-    /// Utilisé comme repli quand WMI AdapterRAM renvoie uint.MaxValue à cause du dépassement 32 bits.
+    /// Lit la VRAM réelle depuis le registre Windows (HardwareInformation.qwMemorySize, QWORD 64 bits) :
+    /// source fiable au-delà de 4 Go, contrairement à WMI AdapterRAM (UInt32 tronqué). Renvoie 0 si
+    /// la clé n'est pas trouvée (l'appelant retombe alors sur AdapterRAM).
     /// </summary>
     private static long TryGetVramFromRegistry(string gpuName)
     {

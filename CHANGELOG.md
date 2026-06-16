@@ -1,3 +1,14 @@
+## v1.3.6
+
+### Nouveautés
+- 🌍 **Bibliothèque : recherche mondiale (façon Hydra, mais légale)** : la barre de recherche de l'onglet **« 🎮 Bibliothèque »** interroge le **catalogue officiel Steam complet** (tous les jeux du monde) et affiche les jaquettes. Vos jeux **installés** se lancent d'un clic (**▶ Lancer**) ; les autres ouvrent leur **page officielle Steam** (**🛒 Voir sur Steam**) pour les acheter/télécharger légalement.
+- 🐧 **Bibliothèque : jeux open-source téléchargeables** : un bouton **« 🐧 Jeux open-source »** liste des jeux libres (SuperTuxKart, The Battle for Wesnoth, Warzone 2100, Hedgewars, FlightGear, Frozen Bubble) et les **télécharge depuis leurs dépôts officiels** (HTTPS), avec barre de progression et installation automatique. Liste curée et vérifiable : pas de « sources » JSON arbitraires, aucun contenu piraté.
+
+### Corrections
+- 🐛 **VRAM réellement corrigée sur les cartes ≥ 4 Go** : le correctif v1.3.5 ne se déclenchait que si WMI renvoyait *exactement* `uint.MaxValue`, or Windows reporte souvent `4 293 918 720` octets (4095 Mio) pour ces cartes (RTX 3070, 3080, 4080…). CleanSlate lit désormais la vraie VRAM 64 bits depuis le registre Windows **en priorité**, et ne retombe sur WMI qu'en dernier recours. La 3070 affiche enfin 8 Go.
+
+---
+
 ## v1.3.5
 
 ### Nouveautés

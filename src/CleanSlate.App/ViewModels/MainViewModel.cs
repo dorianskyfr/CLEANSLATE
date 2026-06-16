@@ -9,6 +9,19 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.3.6 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Bibliothèque : recherche mondiale — tapez un titre pour parcourir TOUS les\n" +
+        "  jeux du monde (catalogue officiel Steam) avec leurs jaquettes. Vos jeux\n" +
+        "  installés se lancent d'un clic (▶), les autres ouvrent leur page Steam (🛒).\n" +
+        "• Bibliothèque : section « 🐧 Jeux open-source » — téléchargez et installez des\n" +
+        "  jeux libres (SuperTuxKart, Wesnoth, Warzone 2100…) depuis leurs dépôts\n" +
+        "  officiels, avec barre de progression. (Aucun contenu piraté.)\n" +
+        "• Overclocking : VRAM enfin correcte sur les cartes ≥ 4 Go (RTX 3070, 4080…).\n" +
+        "  CleanSlate lit maintenant la vraie valeur 64 bits du registre EN PRIORITÉ\n" +
+        "  (WMI tronquait à ~4 Go même quand la valeur n'était pas exactement plafonnée).\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.3.5 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Mode Jeu : nouvel onglet « 🎮 Bibliothèque » — Hydra Launcher intégré.\n" +
