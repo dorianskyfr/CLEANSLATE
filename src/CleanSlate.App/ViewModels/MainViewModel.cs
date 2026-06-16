@@ -9,6 +9,14 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.3.8 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "• Mode Jeu : l'onglet « 🎮 Bibliothèque » est retiré. Le scan des jeux\n" +
+        "  (Steam / Epic / Game Pass), la recherche dans le catalogue Steam, les\n" +
+        "  jeux open-source et l'import de source JSON sont supprimés. Le Mode Jeu\n" +
+        "  conserve la suspension d'applications, l'Overclocking et le DLSS Enabler.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.3.7 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Bibliothèque : « 📥 Importer une source (JSON) » — chargez un fichier JSON\n" +

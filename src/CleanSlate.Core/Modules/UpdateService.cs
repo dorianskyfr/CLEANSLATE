@@ -53,7 +53,7 @@ public sealed class GitHubUpdateService : IUpdateService
             "CleanSlate", "update-state.json");
     }
 
-    public string CurrentVersion => "1.3.7";
+    public string CurrentVersion => "1.3.8";
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct)
     {

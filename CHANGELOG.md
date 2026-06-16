@@ -1,3 +1,10 @@
+## v1.3.8
+
+### Changements
+- 🗑️ **Retrait de l'onglet « Bibliothèque » du Mode Jeu** : la bibliothèque de jeux (scan Steam/Epic/Game Pass, recherche dans le catalogue Steam, jeux open-source et import de source JSON) est entièrement supprimée. Le Mode Jeu conserve la suspension d'applications, l'Overclocking et le DLSS Enabler.
+
+---
+
 ## v1.3.7
 
 ### Nouveautés
