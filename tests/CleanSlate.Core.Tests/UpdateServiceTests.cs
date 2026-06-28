@@ -98,8 +98,10 @@ public class UpdateServiceTests
     [Fact]
     public void ParseVersion_NormaliseLesSegmentsEtPrefixes()
     {
-        Assert.Equal(new Version(1, 5), GitHubUpdateService.ParseVersion("v1.5"));
-        Assert.Equal(new Version(1, 5, 0), GitHubUpdateService.ParseVersion("1.5.0-rc1"));
+        // Tout est normalisé sur 4 composantes : « 1.5 » == « 1.5.0 » == « 1.5.0.0 ».
+        Assert.Equal(new Version(1, 5, 0, 0), GitHubUpdateService.ParseVersion("v1.5"));
+        Assert.Equal(new Version(1, 5, 0, 0), GitHubUpdateService.ParseVersion("1.5.0-rc1"));
+        Assert.Equal(GitHubUpdateService.ParseVersion("1.5"), GitHubUpdateService.ParseVersion("1.5.0"));
         Assert.Null(GitHubUpdateService.ParseVersion("abc"));
         Assert.Null(GitHubUpdateService.ParseVersion("   "));
     }

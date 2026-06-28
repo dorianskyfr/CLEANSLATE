@@ -246,17 +246,14 @@ public sealed class GitHubUpdateService : IUpdateService
         var nums = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
         if (nums.Length == 0) return null;
 
-        int count = Math.Clamp(nums.Length, 2, 4);
-        var parts = new int[count];
-        for (int i = 0; i < count; i++)
+        // Toujours normaliser sur 4 composantes (les manquantes valent 0) : ainsi
+        // « 1.5 », « 1.5.0 » et « 1.5.0.0 » sont strictement égales. (Sans ça,
+        // Version(1,5) a Build = -1 et serait considérée plus ancienne que Version(1,5,0).)
+        var parts = new int[4];
+        for (int i = 0; i < 4; i++)
             parts[i] = (i < nums.Length && int.TryParse(nums[i], out var n) && n >= 0) ? n : 0;
 
-        return count switch
-        {
-            2 => new Version(parts[0], parts[1]),
-            3 => new Version(parts[0], parts[1], parts[2]),
-            _ => new Version(parts[0], parts[1], parts[2], parts[3]),
-        };
+        return new Version(parts[0], parts[1], parts[2], parts[3]);
     }
 
     private sealed class GitHubRelease
