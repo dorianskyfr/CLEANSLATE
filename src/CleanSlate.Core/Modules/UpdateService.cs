@@ -44,6 +44,18 @@ public sealed class GitHubUpdateService : IUpdateService
     private const string Owner = "dorianskyfr";
     private const string Repo  = "CLEANSLATE";
 
+    // Une seule instance HttpClient partagée : évite l'épuisement des sockets
+    // (chaque `new HttpClient()` laissait des connexions en TIME_WAIT). Le délai
+    // par appel est imposé via un CancellationToken plutôt qu'en mutant .Timeout.
+    private static readonly HttpClient Http = CreateHttpClient();
+
+    private static HttpClient CreateHttpClient()
+    {
+        var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-Updater");
+        return http;
+    }
+
     private readonly string _stateFile;
 
     public GitHubUpdateService(string? stateFile = null)
@@ -53,16 +65,16 @@ public sealed class GitHubUpdateService : IUpdateService
             "CleanSlate", "update-state.json");
     }
 
-    public string CurrentVersion => "1.3.8";
+    public string CurrentVersion => "1.5.0";
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct)
     {
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-Updater");
-        http.Timeout = TimeSpan.FromSeconds(15);
+        // Délai propre à la vérification (15 s) sans toucher au Timeout partagé.
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
 
         var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
-        var release = await http.GetFromJsonAsync<GitHubRelease>(url, ct);
+        var release = await Http.GetFromJsonAsync<GitHubRelease>(url, timeoutCts.Token);
         if (release is null) return null;
 
         var remoteVersion = release.TagName?.TrimStart('v') ?? string.Empty;
@@ -84,10 +96,7 @@ public sealed class GitHubUpdateService : IUpdateService
         var destDir = Path.GetTempPath();
         var dest = Path.Combine(destDir, $"CleanSlate-v{update.Version}.exe");
 
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-Updater");
-
-        using var response = await http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await Http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
 
         var total = response.Content.Headers.ContentLength ?? -1L;
@@ -206,15 +215,48 @@ public sealed class GitHubUpdateService : IUpdateService
         catch { /* ignoré */ }
     }
 
-    private static bool IsVersionNewer(string current, string remote)
+    /// <summary>
+    /// Vrai si <paramref name="remote"/> est strictement plus récent que
+    /// <paramref name="current"/>. Tolérant : accepte un préfixe « v », un nombre
+    /// variable de segments (« 1.5 » comme « 1.5.0.0 ») et ignore un suffixe de
+    /// pré-version (« 1.6.0-beta », « 1.6+build »). Renvoie false si l'un des deux
+    /// est illisible (on ne propose pas une mise à jour qu'on ne sait pas comparer).
+    /// </summary>
+    internal static bool IsVersionNewer(string current, string remote)
     {
-        try
+        var c = ParseVersion(current);
+        var r = ParseVersion(remote);
+        if (c is null || r is null) return false;
+        return r > c;
+    }
+
+    /// <summary>Analyse tolérante d'un numéro de version en <see cref="Version"/> (2 à 4 segments).</summary>
+    internal static Version? ParseVersion(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        var s = raw.Trim();
+        if (s.StartsWith("v", StringComparison.OrdinalIgnoreCase)) s = s[1..];
+
+        // Ne garder que la partie numérique pointée de tête (coupe « -beta », « +build »…).
+        int end = 0;
+        while (end < s.Length && (char.IsDigit(s[end]) || s[end] == '.')) end++;
+        s = s[..end];
+
+        var nums = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (nums.Length == 0) return null;
+
+        int count = Math.Clamp(nums.Length, 2, 4);
+        var parts = new int[count];
+        for (int i = 0; i < count; i++)
+            parts[i] = (i < nums.Length && int.TryParse(nums[i], out var n) && n >= 0) ? n : 0;
+
+        return count switch
         {
-            var c = Version.Parse(current);
-            var r = Version.Parse(remote);
-            return r > c;
-        }
-        catch { return false; }
+            2 => new Version(parts[0], parts[1]),
+            3 => new Version(parts[0], parts[1], parts[2]),
+            _ => new Version(parts[0], parts[1], parts[2], parts[3]),
+        };
     }
 
     private sealed class GitHubRelease

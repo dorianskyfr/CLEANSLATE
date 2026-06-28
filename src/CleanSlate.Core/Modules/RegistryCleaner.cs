@@ -48,8 +48,7 @@ public sealed class RegistryCleaner : IRegistryCleaner
             var command = key.GetValue(name)?.ToString();
             if (string.IsNullOrWhiteSpace(command)) continue;
 
-            var exe = ExtractExecutablePath(command!);
-            if (exe is not null && !File.Exists(exe))
+            if (IsOrphanedRunCommand(command!, out var exe))
             {
                 issues.Add(new RegistryIssue(
                     KeyPath: fullKeyPath,
@@ -89,6 +88,33 @@ public sealed class RegistryCleaner : IRegistryCleaner
         _logger.Info($"Nettoyage registre : {fixedCount} entrée(s) orpheline(s) supprimée(s). " +
                      $"Sauvegarde : {backupFilePath}");
         return fixedCount;
+    }
+
+    /// <summary>
+    /// Décide si une commande de démarrage est « orpheline » au sens STRICT et défendable :
+    /// son exécutable pointe vers un chemin ABSOLU qui n'existe pas (après expansion des
+    /// variables d'environnement type <c>%ProgramFiles%</c>).
+    ///
+    /// SÉCURITÉ : on ne signale JAMAIS une commande dont l'exécutable est un simple nom
+    /// (ex. <c>rundll32.exe</c>, <c>powershell.exe</c>) résolu via le PATH — on ne peut pas
+    /// vérifier son existence de façon fiable, et la signaler à tort pousserait l'utilisateur
+    /// à supprimer une entrée de démarrage parfaitement valide. Évite ce faux positif.
+    /// </summary>
+    internal static bool IsOrphanedRunCommand(string command, out string expandedExe)
+    {
+        expandedExe = string.Empty;
+
+        var exe = ExtractExecutablePath(command);
+        if (string.IsNullOrWhiteSpace(exe)) return false;
+
+        // Expansion des %VARIABLES% (ex. %ProgramFiles%\App\app.exe).
+        exe = Environment.ExpandEnvironmentVariables(exe);
+        expandedExe = exe;
+
+        // Nom de commande nu (résolu via le PATH) : indécidable → on ne signale pas.
+        if (!Path.IsPathRooted(exe)) return false;
+
+        return !File.Exists(exe);
     }
 
     /// <summary>Extrait le chemin de l'exécutable d'une commande Run (gère les guillemets).</summary>

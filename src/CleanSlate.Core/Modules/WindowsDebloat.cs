@@ -276,19 +276,26 @@ public sealed class WindowsDebloatService : IWindowsDebloater
         "Microsoft.Todos",
         "king.com.CandyCrushSaga",
         "king.com.CandyCrushSodaSaga",
-        "Microsoft.MicrosoftSolitaireCollection",
     };
+
+    /// <summary>Liste blanche dédupliquée des paquets bloatware (exposée pour les tests d'intégrité).</summary>
+    internal static IReadOnlyList<string> BloatwareCatalog { get; } =
+        BloatwarePackages.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     private void RemoveBloatware(List<string> messages, CancellationToken ct)
     {
         int removed = 0;
-        foreach (var pkg in BloatwarePackages.Distinct())
+        foreach (var pkg in BloatwareCatalog)
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                // PowerShell : retire le paquet pour l'utilisateur courant s'il est présent.
-                var cmd = $"Get-AppxPackage '{pkg}' | Remove-AppxPackage -ErrorAction SilentlyContinue";
+                // PowerShell : retire le paquet pour l'utilisateur courant UNIQUEMENT s'il est
+                // présent, puis confirme sa disparition en émettant un marqueur. Sans ce contrôle,
+                // PowerShell sort en code 0 même quand le paquet était déjà absent — ce qui
+                // gonflait artificiellement le décompte « retiré(s) ».
+                var cmd = $"$p = Get-AppxPackage '{pkg}'; if ($p) {{ $p | Remove-AppxPackage -ErrorAction SilentlyContinue; " +
+                          $"if (-not (Get-AppxPackage '{pkg}')) {{ Write-Output 'CS_REMOVED' }} }}";
                 var psi = new ProcessStartInfo("powershell.exe",
                     $"-NoProfile -ExecutionPolicy Bypass -Command \"{cmd}\"")
                 {
@@ -300,8 +307,9 @@ public sealed class WindowsDebloatService : IWindowsDebloater
                 using var p = Process.Start(psi);
                 if (p is not null)
                 {
+                    var output = p.StandardOutput.ReadToEnd();
                     p.WaitForExit(15000);
-                    if (p.ExitCode == 0) removed++;
+                    if (output.Contains("CS_REMOVED", StringComparison.Ordinal)) removed++;
                 }
             }
             catch (Exception ex)
@@ -309,6 +317,6 @@ public sealed class WindowsDebloatService : IWindowsDebloater
                 _logger.Warning($"Bloatware {pkg} : retrait impossible ({ex.Message}).");
             }
         }
-        messages.Add($"   {removed} type(s) d'application traité(s).");
+        messages.Add($"   {removed} application(s) réellement retirée(s).");
     }
 }

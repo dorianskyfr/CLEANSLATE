@@ -35,48 +35,69 @@ public sealed class GameModeService : IGameMode
         {
             var snapshot = new GameModeSnapshot();
 
-            // 1. Suspendre les processus de la liste blanche.
-            foreach (var name in options.ProcessNamesToSuspend)
+            // L'état est marqué actif et persisté DÈS qu'au moins un élément a été suspendu/arrêté,
+            // et ré-persisté dans le finally quoi qu'il arrive (annulation, exception) : un processus
+            // suspendu doit TOUJOURS rester récupérable, jamais gelé sans trace de restauration.
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                foreach (var proc in Process.GetProcessesByName(name))
+                // 1. Suspendre les processus de la liste blanche.
+                foreach (var name in options.ProcessNamesToSuspend)
                 {
+                    ct.ThrowIfCancellationRequested();
+                    foreach (var proc in Process.GetProcessesByName(name))
+                    {
+                        using (proc) // libère le handle kernel ouvert par Process
+                        {
+                            try
+                            {
+                                var status = NativeMethods.NtSuspendProcess(proc.Handle);
+                                if (status == 0)
+                                {
+                                    snapshot.SuspendedProcessIds.Add(proc.Id);
+                                    _active = snapshot;
+                                    PersistSnapshot(snapshot); // récupérable immédiatement
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // Processus protégé / déjà parti : on ignore, jamais de force.
+                                _logger.Warning($"Mode Jeu : impossible de suspendre {name} ({proc.Id}) : {ex.Message}");
+                            }
+                        }
+                    }
+                }
+
+                // 2. Arrêter les services déclarés (s'ils tournent).
+                foreach (var serviceName in options.ServiceNamesToStop)
+                {
+                    ct.ThrowIfCancellationRequested();
                     try
                     {
-                        var status = NativeMethods.NtSuspendProcess(proc.Handle);
-                        if (status == 0)
-                            snapshot.SuspendedProcessIds.Add(proc.Id);
+                        using var sc = new ServiceController(serviceName);
+                        if (sc.Status == ServiceControllerStatus.Running && sc.CanStop)
+                        {
+                            sc.Stop();
+                            sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                            snapshot.StoppedServices.Add(serviceName);
+                            _active = snapshot;
+                            PersistSnapshot(snapshot);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        // Processus protégé / déjà parti : on ignore, jamais de force.
-                        _logger.Warning($"Mode Jeu : impossible de suspendre {name} ({proc.Id}) : {ex.Message}");
+                        _logger.Warning($"Mode Jeu : impossible d'arrêter le service {serviceName} : {ex.Message}");
                     }
                 }
             }
-
-            // 2. Arrêter les services déclarés (s'ils tournent).
-            foreach (var serviceName in options.ServiceNamesToStop)
+            finally
             {
-                ct.ThrowIfCancellationRequested();
-                try
+                if (snapshot.SuspendedProcessIds.Count > 0 || snapshot.StoppedServices.Count > 0)
                 {
-                    using var sc = new ServiceController(serviceName);
-                    if (sc.Status == ServiceControllerStatus.Running && sc.CanStop)
-                    {
-                        sc.Stop();
-                        sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
-                        snapshot.StoppedServices.Add(serviceName);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warning($"Mode Jeu : impossible d'arrêter le service {serviceName} : {ex.Message}");
+                    _active = snapshot;
+                    PersistSnapshot(snapshot);
                 }
             }
 
-            _active = snapshot;
-            PersistSnapshot(snapshot);
             _logger.Info($"Mode Jeu activé : {snapshot.SuspendedProcessIds.Count} processus suspendu(s), " +
                          $"{snapshot.StoppedServices.Count} service(s) arrêté(s).");
             return snapshot;

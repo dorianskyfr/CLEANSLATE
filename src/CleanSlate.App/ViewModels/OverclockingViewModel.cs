@@ -44,7 +44,8 @@ public sealed class OverclockingViewModel : ObservableObject
         ApplyCommand             = new AsyncRelayCommand(ApplyAsync, () => SelectedProfile is { Actionable: true } && CanAutoApply && !IsBusy);
         ResetCommand             = new AsyncRelayCommand(ResetAsync, () => CanAutoApply && !IsBusy);
         CheckDriverUpdateCommand = new AsyncRelayCommand(CheckDriverUpdateAsync, () => SelectedGpu is not null && !IsCheckingDriver);
-        OpenLatestDriverCommand  = new RelayCommand(() => Open(_driverCheck!.DownloadUrl!), () => !string.IsNullOrEmpty(_driverCheck?.DownloadUrl));
+        OpenLatestDriverCommand  = new RelayCommand(() => { var u = _driverCheck?.DownloadUrl; if (!string.IsNullOrEmpty(u)) Open(u); },
+                                                    () => !string.IsNullOrEmpty(_driverCheck?.DownloadUrl));
 
         DetectGpus();
     }

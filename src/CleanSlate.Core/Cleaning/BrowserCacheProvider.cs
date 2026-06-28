@@ -43,9 +43,20 @@ public sealed class BrowserCacheProvider : FileCleaningProviderBase
         foreach (var template in chromiumUserDataDirs)
             AddChromiumProfiles(targets, template);
 
-        // ── Opera / Opera GX — dossier "User Data" propre ──
-        AddChromiumProfiles(targets, @"%APPDATA%\Opera Software\Opera Stable");
-        AddChromiumProfiles(targets, @"%LOCALAPPDATA%\Opera Software\Opera GX Stable");
+        // ── Opera / Opera GX ──
+        // Opera n'a PAS de sous-dossier "Default" : le dossier de profil EST la racine,
+        // et le cache réel vit sous %LOCALAPPDATA% (le profil sous %APPDATA%). On scanne
+        // donc les sous-dossiers de cache DIRECTEMENT sous chacun de ces emplacements
+        // (l'ancien code cherchait "Opera Stable\Default\Cache", qui n'existe jamais —
+        // le cache Opera/Opera GX n'était donc jamais nettoyé).
+        foreach (var operaRoot in new[]
+                 {
+                     @"%APPDATA%\Opera Software\Opera Stable",
+                     @"%LOCALAPPDATA%\Opera Software\Opera Stable",
+                     @"%APPDATA%\Opera Software\Opera GX Stable",
+                     @"%LOCALAPPDATA%\Opera Software\Opera GX Stable",
+                 })
+            AddDirectProfileCaches(targets, ExpandPath(operaRoot));
 
         // ── Firefox — profils dans Profiles\ ──
         var ffProfiles = ExpandPath(@"%LOCALAPPDATA%\Mozilla\Firefox\Profiles");
@@ -77,14 +88,20 @@ public sealed class BrowserCacheProvider : FileCleaningProviderBase
                 .Where(d => Path.GetFileName(d).StartsWith("Profile ", StringComparison.Ordinal)));
 
         foreach (var profile in profiles.Where(Directory.Exists))
+            AddDirectProfileCaches(targets, profile);
+    }
+
+    /// <summary>Ajoute les sous-dossiers de cache Chromium présents DIRECTEMENT sous <paramref name="profileDir"/>.</summary>
+    private static void AddDirectProfileCaches(List<CleaningTarget> targets, string profileDir)
+    {
+        if (!Directory.Exists(profileDir)) return;
+
+        // Cache, Code Cache (JS/WASM), GPU Cache
+        foreach (var sub in new[] { "Cache", "Code Cache", "GPUCache" })
         {
-            // Cache, Code Cache (JS/WASM), GPU Cache
-            foreach (var sub in new[] { "Cache", "Code Cache", "GPUCache" })
-            {
-                var p = Path.Combine(profile, sub);
-                if (Directory.Exists(p))
-                    targets.Add(new CleaningTarget(p, CleaningCategory.CacheNavigateurs));
-            }
+            var p = Path.Combine(profileDir, sub);
+            if (Directory.Exists(p))
+                targets.Add(new CleaningTarget(p, CleaningCategory.CacheNavigateurs));
         }
     }
 

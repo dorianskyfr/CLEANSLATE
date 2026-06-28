@@ -38,7 +38,10 @@ public sealed class AdBlockViewModel : ObservableObject
         get => _selectedProvider;
         set
         {
-            if (SetProperty(ref _selectedProvider, value) && value is not null)
+            // Ne jamais écrire un fournisseur null dans le champ (un ComboBox vidé
+            // ferait planter ProviderDescription) : on ignore les valeurs nulles.
+            if (value is null) return;
+            if (SetProperty(ref _selectedProvider, value))
             {
                 OnPropertyChanged(nameof(ProviderDescription));
                 _settings.Save(_settings.Load() with { AdBlockProvider = value.Id });

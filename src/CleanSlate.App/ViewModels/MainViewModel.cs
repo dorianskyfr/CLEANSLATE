@@ -9,6 +9,29 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v1.5.0 (2026-06)\n" +
+        "─────────────────────────────\n" +
+        "Version de fiabilité — une passe d'améliorations sur tout CleanSlate.\n\n" +
+        "Corrections :\n" +
+        "• Pilotes NVIDIA : comparaison de version corrigée (566.14 était vu à tort\n" +
+        "  comme plus ancien que 566.9 — certaines mises à jour étaient ratées).\n" +
+        "• Cache navigateurs : Opera et Opera GX sont enfin réellement nettoyés.\n" +
+        "• Nettoyage du registre : plus de faux positifs — les variables\n" +
+        "  d'environnement sont développées et les commandes via PATH (rundll32…)\n" +
+        "  ne sont jamais signalées comme orphelines.\n" +
+        "• Optimisation RAM : le « +X libéré » est désormais présenté comme une\n" +
+        "  variation indicative (chiffre honnête), et une fuite de handle est corrigée.\n" +
+        "• Mode Jeu : restauration garantie même si l'activation est interrompue\n" +
+        "  (instantané écrit au fur et à mesure, handles libérés proprement).\n" +
+        "• Bloqueur de pub : la restauration du DNS d'origine est vérifiée — la\n" +
+        "  sauvegarde est conservée en cas d'échec (config d'origine préservée).\n" +
+        "• Windows Debloat : décompte réel des applications retirées + doublon retiré.\n" +
+        "• Interface : les boutons « Optimiser la RAM » / « Réparer » ne restent plus\n" +
+        "  grisés en cas d'erreur ; choix du fournisseur DNS protégé.\n\n" +
+        "Sous le capot : HttpClient partagé (pas d'épuisement des sockets),\n" +
+        "métadonnées de version correctes dans l'EXE (1.5.0), nouveaux tests.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.3.8 (2026-06)\n" +
         "─────────────────────────────\n" +
         "• Mode Jeu : l'onglet « 🎮 Bibliothèque » est retiré. Le scan des jeux\n" +

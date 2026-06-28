@@ -39,8 +39,14 @@ public sealed class MemoryViewModel : ObservableObject
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += async (_, _) =>
         {
-            Refresh();
-            await MaybeAutoOptimizeAsync();
+            // Un échec transitoire de lecture mémoire ne doit jamais faire planter
+            // l'application via une exception non observée d'un gestionnaire async void.
+            try
+            {
+                Refresh();
+                await MaybeAutoOptimizeAsync();
+            }
+            catch { /* tick best-effort : on réessaie à la seconde suivante */ }
         };
         _timer.Start();
         Refresh();
@@ -98,11 +104,20 @@ public sealed class MemoryViewModel : ObservableObject
         IsBusy = true;
         LastResult = $"RAM > {_autoThreshold} % — optimisation automatique en cours…";
 
-        var result = await Task.Run(() => _monitor.OptimizeMemory(clearStandbyList: true));
-
-        Refresh();
-        IsBusy = false;
-        LastResult = $"[Auto] {result.Message}";
+        try
+        {
+            var result = await Task.Run(() => _monitor.OptimizeMemory(clearStandbyList: true));
+            LastResult = $"[Auto] {result.Message}";
+        }
+        catch (Exception ex)
+        {
+            LastResult = $"[Auto] Échec de l'optimisation : {ex.Message}";
+        }
+        finally
+        {
+            Refresh();
+            IsBusy = false; // toujours réinitialisé, sinon le bouton resterait grisé à jamais
+        }
     }
 
     private void Refresh()
@@ -121,10 +136,19 @@ public sealed class MemoryViewModel : ObservableObject
         IsBusy = true;
         LastResult = "Optimisation en cours…";
 
-        var result = await Task.Run(() => _monitor.OptimizeMemory(clearStandbyList: true));
-
-        Refresh();
-        IsBusy = false;
-        LastResult = result.Message;
+        try
+        {
+            var result = await Task.Run(() => _monitor.OptimizeMemory(clearStandbyList: true));
+            LastResult = result.Message;
+        }
+        catch (Exception ex)
+        {
+            LastResult = $"Échec de l'optimisation : {ex.Message}";
+        }
+        finally
+        {
+            Refresh();
+            IsBusy = false; // toujours réinitialisé, sinon le bouton resterait grisé à jamais
+        }
     }
 }

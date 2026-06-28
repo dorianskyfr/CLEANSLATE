@@ -86,8 +86,19 @@ public sealed class QuickRepairViewModel : ObservableObject
 
         IsBusy = true;
         var progress = new Progress<string>(msg => StatusMessage = msg);
-        await _service.RepairAsync(check, progress, CancellationToken.None);
-        IsBusy = false;
-        StatusMessage = $"Réparation de « {check.Name} » terminée : {check.Detail}";
+        try
+        {
+            await _service.RepairAsync(check, progress, CancellationToken.None);
+            StatusMessage = $"Réparation de « {check.Name} » terminée : {check.Detail}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Échec de la réparation de « {check.Name} » : {ex.Message}";
+            _dialogs.Warn("Réparation rapide", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false; // toujours réinitialisé, même si la réparation échoue
+        }
     }
 }

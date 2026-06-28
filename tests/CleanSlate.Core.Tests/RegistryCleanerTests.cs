@@ -25,4 +25,34 @@ public class RegistryCleanerTests
     {
         Assert.Null(RegistryCleaner.ExtractExecutablePath("   "));
     }
+
+    // --- Détection « orpheline » : ne jamais signaler une commande indécidable ---
+
+    [Theory]
+    [InlineData("rundll32.exe shell32.dll,Control_RunDLL")] // nom nu résolu via PATH
+    [InlineData("powershell.exe -NoProfile")]               // nom nu
+    [InlineData("OneDrive.exe /background")]                // nom nu
+    public void IsOrphanedRunCommand_NomNu_NeSignaleJamais(string command)
+    {
+        // Un exécutable sans chemin absolu est résolu via le PATH : indécidable,
+        // on ne doit donc JAMAIS le proposer à la suppression (sinon faux positif).
+        Assert.False(RegistryCleaner.IsOrphanedRunCommand(command, out _));
+    }
+
+    [Fact]
+    public void IsOrphanedRunCommand_CheminAbsoluInexistant_EstSignale()
+    {
+        var bogus = @"C:\CleanSlate\__inexistant__\nope.exe";
+        Assert.True(RegistryCleaner.IsOrphanedRunCommand($"\"{bogus}\" -arg", out var exe));
+        Assert.Equal(bogus, exe);
+    }
+
+    [Fact]
+    public void IsOrphanedRunCommand_VariableEnvironnement_EstDeveloppee()
+    {
+        // %SystemRoot%\...\__inexistant__.exe doit être développé puis testé en absolu.
+        Assert.True(RegistryCleaner.IsOrphanedRunCommand(
+            @"%SystemRoot%\System32\__cleanslate_inexistant__.exe", out var exe));
+        Assert.DoesNotContain("%", exe);
+    }
 }

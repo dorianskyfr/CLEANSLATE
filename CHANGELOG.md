@@ -1,3 +1,24 @@
+## v1.5.0
+
+Version de **fiabilité** : une passe d'améliorations sur tout CleanSlate, fidèle à la philosophie « honnêteté technique » — corriger les vrais bugs et ne jamais afficher de chiffre inventé.
+
+### Corrections
+- 🎯 **Pilotes NVIDIA — comparaison de version corrigée** : les versions NVIDIA ne sont pas des décimales. CleanSlate ordonnait à tort `566.14` comme plus **ancien** que `566.9` et ratait donc certaines mises à jour. La comparaison se fait désormais par entiers (majeur, mineur).
+- 🧹 **Cache navigateurs — Opera et Opera GX enfin nettoyés** : leur cache n'était jamais trouvé (CleanSlate cherchait un sous-dossier `Default` qui n'existe pas chez Opera). Les vrais dossiers de cache sont maintenant détectés.
+- 🛡️ **Nettoyage du registre — fini les faux positifs** : les commandes de démarrage utilisant des variables d'environnement (`%ProgramFiles%\…`) sont désormais développées avant vérification, et les commandes résolues via le PATH (`rundll32.exe`, `powershell.exe`…) ne sont **jamais** signalées comme orphelines. On ne propose plus de supprimer une entrée parfaitement valide.
+- 🧠 **Optimisation RAM — chiffre honnête** : le « +X libéré » provenait d'une différence de mesure influencée par tout le système. Il est désormais présenté comme une **variation indicative** de mémoire disponible, pas comme une mesure exacte de ce que CleanSlate aurait libéré. (Et une fuite de handle Windows à chaque optimisation est corrigée.)
+- 🎮 **Mode Jeu — restauration garantie** : si l'activation est annulée ou interrompue, les applications déjà suspendues restent **toujours récupérables** (l'instantané de restauration est écrit au fur et à mesure, et les handles de processus sont libérés proprement).
+- 🛡️ **Bloqueur de pub — restauration DNS vérifiée** : le code de retour de Windows est désormais contrôlé. Si la restauration du DNS d'origine échoue sur un adaptateur, la **sauvegarde est conservée** pour réessayer au lieu d'être supprimée (votre config d'origine n'est plus perdue).
+- 🧼 **Windows Debloat — décompte réel** : le bilan indique le nombre d'applications **réellement** retirées (et non les paquets déjà absents), et un doublon dans la liste a été supprimé.
+- 🖱️ **Interface plus robuste** : les boutons « Optimiser la RAM » et « Réparer » ne restent plus grisés indéfiniment si une opération échoue (l'erreur est affichée), et le choix du fournisseur DNS est protégé contre les sélections vides.
+
+### Sous le capot
+- 🌐 **Connexions réseau** : un seul `HttpClient` partagé pour les vérifications de mise à jour et de pilotes — plus de risque d'épuisement des sockets lors de vérifications répétées.
+- 🏷️ **Métadonnées de version** : l'exécutable publié porte enfin le bon numéro (1.5.0) dans ses propriétés Windows, au lieu de `1.0.0.0`.
+- ✅ **Tests** : nouveaux tests unitaires (comparaison de versions, pilotes NVIDIA, détection d'entrées registre orphelines, intégrité du catalogue debloat, formatage des tailles).
+
+---
+
 ## v1.3.8
 
 ### Changements

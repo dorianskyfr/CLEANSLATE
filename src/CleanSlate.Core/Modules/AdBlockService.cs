@@ -165,6 +165,7 @@ public sealed class DnsAdBlockService : IAdBlockService
         }
 
         var adapters = GetActiveAdapters();
+        bool allRestored = true;
         try
         {
             foreach (var adapter in adapters)
@@ -173,7 +174,8 @@ public sealed class DnsAdBlockService : IAdBlockService
                 var original = backup is not null && backup.TryGetValue(settingId, out var dns)
                     ? dns
                     : Array.Empty<string>();
-                SetDns(adapter, original);
+                if (!IsDnsSuccess(SetDns(adapter, original)))
+                    allRestored = false;
             }
         }
         finally
@@ -181,7 +183,17 @@ public sealed class DnsAdBlockService : IAdBlockService
             foreach (var a in adapters) a.Dispose();
         }
 
-        if (File.Exists(BackupPath)) File.Delete(BackupPath);
+        // On ne supprime la sauvegarde QUE si la restauration a réellement réussi partout :
+        // sinon l'utilisateur resterait sur le DNS de filtrage avec sa config d'origine perdue.
+        if (allRestored)
+        {
+            if (File.Exists(BackupPath)) File.Delete(BackupPath);
+        }
+        else
+        {
+            progress?.Report("Attention : la restauration DNS a échoué sur au moins un adaptateur — " +
+                             "la sauvegarde est conservée pour réessayer.");
+        }
 
         progress?.Report("Vidage du cache DNS…");
         FlushDns();
@@ -229,12 +241,22 @@ public sealed class DnsAdBlockService : IAdBlockService
     private static string DescribeAdapter(ManagementObject adapter) =>
         (adapter["Description"] as string) ?? "Adaptateur réseau";
 
-    private static void SetDns(ManagementObject adapter, string[] servers)
+    /// <summary>
+    /// Applique la liste DNS à un adaptateur et renvoie le code de retour WMI
+    /// (0 = succès, 1 = succès mais redémarrage requis, autre = échec). Ce code était
+    /// auparavant ignoré : un changement DNS échoué était alors rapporté comme réussi.
+    /// </summary>
+    private static uint SetDns(ManagementObject adapter, string[] servers)
     {
         using var inParams = adapter.GetMethodParameters("SetDNSServerSearchOrder");
         inParams["DNSServerSearchOrder"] = servers.Length == 0 ? null : servers;
-        adapter.InvokeMethod("SetDNSServerSearchOrder", inParams, null);
+        using var outParams = adapter.InvokeMethod("SetDNSServerSearchOrder", inParams, null);
+        var rv = outParams?["ReturnValue"];
+        return rv is null ? 0u : Convert.ToUInt32(rv);
     }
+
+    /// <summary>Vrai si le code WMI indique un succès (0) ou un succès au prochain redémarrage (1).</summary>
+    private static bool IsDnsSuccess(uint returnCode) => returnCode is 0 or 1;
 
     private static void FlushDns()
     {

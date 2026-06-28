@@ -33,8 +33,11 @@ public sealed class FileActionLogger : IActionLogger
 
     private void Write(string level, string message)
     {
-        var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{level}] {message}";
-        var file = Path.Combine(_logDirectory, $"cleanslate-{DateTime.Now:yyyyMMdd}.log");
+        // Un seul appel à l'horloge : sinon, à minuit pile, la ligne pourrait être datée
+        // d'un jour et écrite dans le fichier du lendemain.
+        var now = DateTime.Now;
+        var line = $"{now:yyyy-MM-dd HH:mm:ss} [{level}] {message}";
+        var file = Path.Combine(_logDirectory, $"cleanslate-{now:yyyyMMdd}.log");
         lock (_gate)
         {
             try { File.AppendAllText(file, line + Environment.NewLine); }

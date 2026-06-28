@@ -28,7 +28,8 @@ public interface IMemoryMonitor
     /// Optimise la RAM : vide les working sets de tous les processus, puis — si
     /// <paramref name="clearStandbyList"/> et droits admin — purge la Standby List
     /// (mémoire inutilisée en cache, libérable immédiatement).
-    /// Retourne les octets réellement libérés (différence avant/après).
+    /// <see cref="MemoryOptimizationResult.FreedBytes"/> est la VARIATION de mémoire
+    /// disponible avant/après (indicatif), pas une mesure exacte de ce qui a été libéré.
     /// </summary>
     MemoryOptimizationResult OptimizeMemory(bool clearStandbyList);
 }
@@ -90,14 +91,19 @@ public sealed class MemoryMonitor : IMemoryMonitor
         }
 
         var after = Read();
-        long freed = (long)after.AvailablePhysicalBytes - (long)before.AvailablePhysicalBytes;
-        if (freed < 0) freed = 0;
+        // Honnêteté technique : ce delta est une VARIATION de mémoire disponible mesurée
+        // entre deux instants, influencée par toute l'activité du système entre-temps — ce
+        // n'est pas « ce que CleanSlate a libéré ». On l'affiche donc comme indicatif, et
+        // seulement quand il est positif et que la Standby List a réellement été vidée.
+        long delta = (long)after.AvailablePhysicalBytes - (long)before.AvailablePhysicalBytes;
+        if (delta < 0) delta = 0;
 
         var msg = standbyCleared
-            ? $"{emptied} processus traités, Standby List vidée (+{FormatBytes(freed)} libérés)."
+            ? $"{emptied} processus traités, Standby List vidée. " +
+              $"Mémoire disponible : +{FormatBytes(delta)} (indicatif)."
             : $"{emptied} processus traités (working sets). Standby List non vidée (droits admin requis).";
 
-        return new MemoryOptimizationResult(emptied, freed, standbyCleared, msg);
+        return new MemoryOptimizationResult(emptied, delta, standbyCleared, msg);
     }
 
     private static bool IsAdmin()
@@ -112,22 +118,31 @@ public sealed class MemoryMonitor : IMemoryMonitor
 
     private static void EnablePrivilege(string privilegeName)
     {
+        using var current = System.Diagnostics.Process.GetCurrentProcess();
         if (!NativeMethods.OpenProcessToken(
-                System.Diagnostics.Process.GetCurrentProcess().Handle,
+                current.Handle,
                 NativeMethods.TOKEN_ADJUST_PRIVILEGES | NativeMethods.TOKEN_QUERY,
                 out var token))
             return;
 
-        if (!NativeMethods.LookupPrivilegeValue(null, privilegeName, out var luid))
-            return;
-
-        var tp = new NativeMethods.TOKEN_PRIVILEGES
+        try
         {
-            PrivilegeCount = 1,
-            Luid = luid,
-            Attributes = NativeMethods.SE_PRIVILEGE_ENABLED,
-        };
-        NativeMethods.AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+            if (!NativeMethods.LookupPrivilegeValue(null, privilegeName, out var luid))
+                return;
+
+            var tp = new NativeMethods.TOKEN_PRIVILEGES
+            {
+                PrivilegeCount = 1,
+                Luid = luid,
+                Attributes = NativeMethods.SE_PRIVILEGE_ENABLED,
+            };
+            NativeMethods.AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+        }
+        finally
+        {
+            // Le handle de token doit être fermé (sinon fuite d'un handle kernel à chaque appel).
+            NativeMethods.CloseHandle(token);
+        }
     }
 
     private static string FormatBytes(long b)

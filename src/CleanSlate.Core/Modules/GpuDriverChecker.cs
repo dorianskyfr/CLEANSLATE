@@ -50,6 +50,16 @@ public sealed class GpuDriverChecker : IGpuDriverChecker
     private const string AmdSupportPage      = "https://www.amd.com/en/support";
     private const string IntelDetectPage     = "https://www.intel.com/content/www/us/en/support/detect.html";
 
+    // HttpClient partagé (évite l'épuisement des sockets entre vérifications répétées).
+    private static readonly HttpClient Http = CreateHttpClient();
+
+    private static HttpClient CreateHttpClient()
+    {
+        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-DriverCheck");
+        return http;
+    }
+
     public async Task<GpuDriverCheckResult> CheckLatestAsync(GpuInfo gpu, CancellationToken ct)
     {
         return gpu.Vendor switch
@@ -69,11 +79,11 @@ public sealed class GpuDriverChecker : IGpuDriverChecker
 
         try
         {
-            using var http = new HttpClient();
-            http.DefaultRequestHeaders.Add("User-Agent", "CleanSlate-DriverCheck");
-            http.Timeout = TimeSpan.FromSeconds(20);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(20));
+            var token = timeoutCts.Token;
 
-            var xml = await http.GetStringAsync(NvidiaFamilyListUrl, ct);
+            var xml = await Http.GetStringAsync(NvidiaFamilyListUrl, token);
             var doc = XDocument.Parse(xml);
             var families = doc.Descendants("LookupValue")
                 .Select(e => new
@@ -99,7 +109,7 @@ public sealed class GpuDriverChecker : IGpuDriverChecker
                       $"?func=DriverManualLookup&psid={match.Psid}&pfid={match.Pfid}&osID={osId}" +
                       "&languageCode=1033&beta=null&isWHQL=1&dltype=-1&dch=1&upCRD=null&qnf=0&sort1=0&numberOfResults=1";
 
-            var json = await http.GetStringAsync(url, ct);
+            var json = await Http.GetStringAsync(url, token);
             var response = JsonSerializer.Deserialize<NvidiaLookupResponse>(json);
             var info = response?.IDS?.FirstOrDefault()?.DownloadInfo;
 
@@ -147,7 +157,7 @@ public sealed class GpuDriverChecker : IGpuDriverChecker
     /// NVIDIA (ex. "566.14") : dernier chiffre du 3ᵉ segment, suivi du 4ᵉ segment
     /// avec un point inséré avant les 2 derniers chiffres.
     /// </summary>
-    private static string? ConvertNvidiaVersion(string? wmiVersion)
+    internal static string? ConvertNvidiaVersion(string? wmiVersion)
     {
         if (string.IsNullOrWhiteSpace(wmiVersion)) return null;
         var parts = wmiVersion.Split('.');
@@ -161,16 +171,35 @@ public sealed class GpuDriverChecker : IGpuDriverChecker
         return $"{major}.{minor}";
     }
 
-    private static bool IsNvidiaNewer(string? installedDisplay, string latestVersion)
+    /// <summary>
+    /// Vrai si le pilote NVIDIA <paramref name="latestVersion"/> est plus récent que
+    /// <paramref name="installedDisplay"/>. Les versions NVIDIA (« 566.14 ») NE sont
+    /// PAS des décimales : « 566.14 » est plus récent que « 566.9 ». On compare donc
+    /// (majeur, mineur) en entiers, et non en double (qui ordonnait 566.14 &lt; 566.9).
+    /// </summary>
+    internal static bool IsNvidiaNewer(string? installedDisplay, string latestVersion)
     {
-        if (!double.TryParse(latestVersion, NumberStyles.Number, CultureInfo.InvariantCulture, out var latest))
-            return false;
-        if (!double.TryParse(installedDisplay, NumberStyles.Number, CultureInfo.InvariantCulture, out var installed))
-            return true; // version installée inconnue : on signale la dernière dispo par sécurité
-        return latest > installed;
+        var latest = ParseNvidiaVersion(latestVersion);
+        if (latest is null) return false;
+        var installed = ParseNvidiaVersion(installedDisplay);
+        if (installed is null) return true; // version installée inconnue : on signale la dernière dispo par sécurité
+        return latest.Value.CompareTo(installed.Value) > 0;
     }
 
-    private static long? ParseSizeToBytes(string? sizeText)
+    /// <summary>« 566.14 » → (566, 14). Renvoie null si le majeur n'est pas numérique.</summary>
+    private static (int Major, int Minor)? ParseNvidiaVersion(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return null;
+        var parts = version.Trim().Split('.');
+        if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var major))
+            return null;
+        int minor = 0;
+        if (parts.Length > 1)
+            int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out minor);
+        return (major, minor);
+    }
+
+    internal static long? ParseSizeToBytes(string? sizeText)
     {
         if (string.IsNullOrWhiteSpace(sizeText)) return null;
         var cleaned = sizeText.Replace("MB", "", StringComparison.OrdinalIgnoreCase)

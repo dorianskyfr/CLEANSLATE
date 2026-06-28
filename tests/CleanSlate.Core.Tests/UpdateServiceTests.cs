@@ -77,6 +77,33 @@ public class UpdateServiceTests
         finally { File.Delete(stateFile); }
     }
 
+    // --- Comparaison de versions (logique pure, tolérante) ---
+
+    [Theory]
+    [InlineData("1.3.8", "1.5.0", true)]   // mise à jour mineure
+    [InlineData("1.3.8", "1.3.9", true)]   // patch
+    [InlineData("1.5.0", "1.5.0", false)]  // identique
+    [InlineData("1.5.0", "1.4.9", false)]  // plus ancienne
+    [InlineData("1.5", "1.5.0", false)]    // « 1.5 » == « 1.5.0 »
+    [InlineData("1.5.0", "1.6", true)]     // moins de segments côté distant
+    [InlineData("1.5.0", "v1.6.0", true)]  // préfixe « v » toléré
+    [InlineData("1.5.0", "1.6.0-beta", true)] // suffixe de pré-version ignoré
+    [InlineData("1.5.0", "pas-une-version", false)] // illisible → on ne propose rien
+    [InlineData("", "1.6.0", false)]       // courant illisible → on ne propose rien
+    public void IsVersionNewer_CompareCorrectement(string current, string remote, bool expected)
+    {
+        Assert.Equal(expected, GitHubUpdateService.IsVersionNewer(current, remote));
+    }
+
+    [Fact]
+    public void ParseVersion_NormaliseLesSegmentsEtPrefixes()
+    {
+        Assert.Equal(new Version(1, 5), GitHubUpdateService.ParseVersion("v1.5"));
+        Assert.Equal(new Version(1, 5, 0), GitHubUpdateService.ParseVersion("1.5.0-rc1"));
+        Assert.Null(GitHubUpdateService.ParseVersion("abc"));
+        Assert.Null(GitHubUpdateService.ParseVersion("   "));
+    }
+
     [Fact]
     public void LoadPendingUpdate_VersionPersisteeDejaInstallee_EstNettoyee()
     {

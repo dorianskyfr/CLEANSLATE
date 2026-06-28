@@ -38,7 +38,7 @@ internal static class NativeMethods
     // ---------------------------------------------------------------------
     // Mémoire — module 3 (surveillance). GlobalMemoryStatusEx (kernel32).
     // ---------------------------------------------------------------------
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    [StructLayout(LayoutKind.Sequential)]
     public struct MEMORYSTATUSEX
     {
         public uint dwLength;
@@ -134,4 +134,9 @@ internal static class NativeMethods
     public const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
     public const uint TOKEN_QUERY             = 0x0008;
     public const uint SE_PRIVILEGE_ENABLED    = 0x00000002;
+
+    /// <summary>Ferme un handle kernel (ici : le handle de token ouvert par OpenProcessToken).</summary>
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr hObject);
 }
