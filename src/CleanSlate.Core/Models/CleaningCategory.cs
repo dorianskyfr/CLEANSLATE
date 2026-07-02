@@ -30,6 +30,12 @@ public enum CleaningCategory
 
     /// <summary>Rapports d'erreurs Windows (WER). Données de diagnostic uniquement.</summary>
     RapportsErreurs,
+
+    /// <summary>Cache de téléchargement de Windows Update (SoftwareDistribution). Re-téléchargé au besoin.</summary>
+    CacheWindowsUpdate,
+
+    /// <summary>Vidages mémoire de plantage (CrashDumps, Minidump). Diagnostic uniquement.</summary>
+    VidagesPlantage,
 }
 
 /// <summary>

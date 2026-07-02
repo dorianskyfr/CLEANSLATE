@@ -48,6 +48,8 @@ public partial class App : Application
             new ThumbnailCacheProvider(logger),
             new ShaderCacheProvider(logger),
             new ErrorReportsProvider(logger),
+            new WindowsUpdateCacheProvider(logger),
+            new CrashDumpsProvider(logger),
             new RecycleBinProvider(logger),
             new WindowsLogsProvider(logger),
             new PrefetchProvider(logger),
@@ -69,6 +71,7 @@ public partial class App : Application
         ISystemInfoService systemInfo      = new SystemInfoService(memoryMonitor);
         IMaintenanceService maintenance    = new MaintenanceService(engine, memoryMonitor);
         IDlssEnablerService dlssEnabler    = new DlssEnablerService();
+        IDiskAnalyzer diskAnalyzerSvc      = new DiskAnalyzer();
 
         // Nettoyage de l'ancien blocage par fichier hosts (versions <= v0.9.2),
         // qui rendait le PC très lent et ne pouvait être désactivé sans Mode sans échec.
@@ -80,13 +83,14 @@ public partial class App : Application
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
         var memoryVm       = new MemoryViewModel(memoryMonitor, settingsSvc, dialogs);
         var driversVm      = new DriversViewModel(dialogs);
+        var diskAnalyzerVm = new DiskAnalyzerViewModel(diskAnalyzerSvc, dialogs);
         var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dlssEnabler, settingsSvc, dialogs);
         var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, debloater, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);
         var adBlockVm      = new AdBlockViewModel(adBlockSvc, settingsSvc, dialogs);
 
         var mainVm = new MainViewModel(
-            dashboardVm, cleaningVm, memoryVm, driversVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm,
+            dashboardVm, cleaningVm, memoryVm, driversVm, diskAnalyzerVm, gameModeVm, optimizationVm, quickRepairVm, adBlockVm,
             updateSvc, settingsSvc, dialogs);
 
         var window = new MainWindow { DataContext = mainVm };

@@ -125,6 +125,67 @@ public sealed class ErrorReportsProvider : FileCleaningProviderBase
 }
 
 /// <summary>
+/// Nettoyage du cache de téléchargement de Windows Update
+/// (<c>%SystemRoot%\SoftwareDistribution\Download</c>). Ce dossier contient les
+/// fichiers d'installation déjà téléchargés des mises à jour. Windows les re-télécharge
+/// au besoin ; vider ce cache est une étape classique de dépannage quand une mise à jour
+/// reste bloquée. Peut représenter plusieurs Go.
+/// </summary>
+public sealed class WindowsUpdateCacheProvider : FileCleaningProviderBase
+{
+    public WindowsUpdateCacheProvider(IActionLogger logger) : base(logger) { }
+
+    public override string Id => "windows-update-cache";
+    public override string DisplayName => "Cache de Windows Update";
+    public override CleaningCategory Category => CleaningCategory.CacheWindowsUpdate;
+    public override CleaningSeverity Severity => CleaningSeverity.Information;
+    public override bool RequiresAdministrator => true;
+
+    public override string Description =>
+        "Vide le cache de téléchargement de Windows Update (SoftwareDistribution\\Download) : " +
+        "les fichiers d'installation déjà téléchargés. Windows les re-télécharge au besoin. " +
+        "Souvent plusieurs Go ; utile aussi si une mise à jour reste bloquée. Certains fichiers " +
+        "en cours d'utilisation seront ignorés (droits administrateur requis).";
+
+    protected override IReadOnlyList<CleaningTarget> Targets { get; } = new[]
+    {
+        new CleaningTarget(@"%SystemRoot%\SoftwareDistribution\Download",
+            CleaningCategory.CacheWindowsUpdate, recurse: true),
+    };
+}
+
+/// <summary>
+/// Nettoyage des vidages mémoire de plantage : dumps d'applications
+/// (<c>%LOCALAPPDATA%\CrashDumps</c>) et mini-vidages de plantage système
+/// (<c>%SystemRoot%\Minidump</c>). Uniquement des données de diagnostic après un
+/// plantage — sans effet sur le fonctionnement du système, mais utiles à conserver
+/// si vous êtes en train de diagnostiquer un BSOD.
+/// </summary>
+public sealed class CrashDumpsProvider : FileCleaningProviderBase
+{
+    public CrashDumpsProvider(IActionLogger logger) : base(logger) { }
+
+    public override string Id => "crash-dumps";
+    public override string DisplayName => "Vidages mémoire de plantage";
+    public override CleaningCategory Category => CleaningCategory.VidagesPlantage;
+    public override CleaningSeverity Severity => CleaningSeverity.Avertissement;
+    public override bool RequiresAdministrator => true;
+
+    public override string Description =>
+        "⚠️ Supprime les vidages mémoire de plantage (CrashDumps d'applications et " +
+        "Minidump système). Ce sont uniquement des données de diagnostic post-plantage, " +
+        "sans effet sur le système — mais si vous diagnostiquez un écran bleu (BSOD), " +
+        "gardez-les. Décoché par défaut. Droits administrateur requis pour les minidumps.";
+
+    protected override IReadOnlyList<CleaningTarget> Targets { get; } = new[]
+    {
+        new CleaningTarget(@"%LOCALAPPDATA%\CrashDumps", CleaningCategory.VidagesPlantage, recurse: true),
+        new CleaningTarget(@"%SystemRoot%\Minidump", CleaningCategory.VidagesPlantage,
+            recurse: true, searchPattern: "*.dmp"),
+    };
+}
+
+/// <summary>
 /// Nettoyage du cache des miniatures (thumbcache_*.db). Régénéré automatiquement
 /// par l'Explorateur. Gain d'espace réel et sûr.
 /// </summary>
