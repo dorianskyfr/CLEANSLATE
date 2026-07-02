@@ -43,18 +43,22 @@ public sealed class WmiDriverInventory : IDriverInventory
             "SELECT DeviceName, DriverVersion, DriverDate, Manufacturer, DeviceClass " +
             "FROM Win32_PnPSignedDriver");
 
-        foreach (var obj in searcher.Get())
+        using var results = searcher.Get();
+        foreach (var obj in results)
         {
-            var name = obj["DeviceName"] as string;
+            // Chaque ManagementObject encapsule un objet COM : à libérer explicitement.
+            using var mo = (System.Management.ManagementObject)obj;
+
+            var name = mo["DeviceName"] as string;
             if (string.IsNullOrWhiteSpace(name))
                 continue; // on ignore les entrées sans nom de périphérique
 
             drivers.Add(new DriverInfo(
                 DeviceName: name!,
-                DriverVersion: obj["DriverVersion"] as string,
-                DriverDate: ParseWmiDate(obj["DriverDate"] as string),
-                Manufacturer: obj["Manufacturer"] as string,
-                DeviceClass: obj["DeviceClass"] as string));
+                DriverVersion: mo["DriverVersion"] as string,
+                DriverDate: ParseWmiDate(mo["DriverDate"] as string),
+                Manufacturer: mo["Manufacturer"] as string,
+                DeviceClass: mo["DeviceClass"] as string));
         }
 
         return drivers

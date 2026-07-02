@@ -72,10 +72,11 @@ Optimisation temporaire des ressources pour les sessions de jeu :
 
 Au-delà des cinq modules historiques, CleanSlate intègre :
 
-- **Accueil / tableau de bord** — vue d'ensemble du système (Windows, CPU, GPU, RAM, disques, uptime) et **« Entretien en 1 clic »** (nettoyage des catégories sûres + optimisation RAM).
+- **Accueil / tableau de bord** — vue d'ensemble du système (Windows, CPU, GPU, RAM, disques, uptime), **« Entretien en 1 clic »** (nettoyage des catégories sûres + optimisation RAM) et **entretien automatique programmé** (récurrent, en arrière-plan, désactivé par défaut).
+- **Analyseur d'espace disque** — scanne un lecteur/dossier et liste ses plus gros sous-dossiers et fichiers (lecture seule ; ouvre l'emplacement dans l'Explorateur).
 - **Overclocking** — détection GPU et profils d'overclock, avec application directe sur NVIDIA (NVAPI) et AMD (ADL), import MSI Afterburner, et vérification du dernier pilote auprès du fabricant.
 - **DLSS Enabler** — installe/désinstalle le mod open-source DLSS Enabler par jeu (Steam / Epic / Game Pass), réversible. Réservé aux jeux solo.
-- **Windows Debloat** — désactivation de la télémétrie/confidentialité et retrait du bloatware préinstallé, chaque action cochée par l'utilisateur.
+- **Windows Debloat** — désactivation de la télémétrie/confidentialité et retrait du bloatware préinstallé, chaque action cochée par l'utilisateur. **Réversible** : l'état d'origine (registre, services, tâches) est sauvegardé avant modification, avec un bouton « Tout restaurer ».
 - **Bloqueur de pub (DNS)** — bascule du DNS système vers un fournisseur filtrant (AdGuard, Cloudflare, Quad9), réversible (DNS d'origine sauvegardé/restauré).
 - **Réparation rapide** — diagnostic système en plusieurs points avec corrections automatiques.
 - **Mises à jour intégrées** — vérification discrète au démarrage et installation depuis GitHub.
@@ -126,7 +127,10 @@ CleanSlate/
         ├── RegistryCleanerTests.cs    # Extraction chemin + détection d'orphelins
         ├── UpdateServiceTests.cs      # Persistance + comparaison de versions
         ├── GpuDriverCheckerTests.cs   # Conversion/comparaison de versions NVIDIA
-        ├── WindowsDebloatTests.cs     # Intégrité du catalogue de bloatware
+        ├── DiskAnalyzerTests.cs       # Analyse d'espace disque (tailles, tri, topN)
+        ├── MaintenanceSchedulerTests.cs # Déclenchement de l'entretien automatique
+        ├── CleaningProvidersTests.cs  # Intégrité des providers de nettoyage
+        ├── WindowsDebloatTests.cs     # Catalogue + réversibilité du debloat
         ├── FileActionLoggerTests.cs   # Formatage des tailles
         ├── AdBlockServiceTests.cs     # Parsing/sérialisation des sauvegardes DNS
         ├── AppSettingsServiceTests.cs # Persistance des préférences

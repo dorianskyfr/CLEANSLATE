@@ -1,3 +1,23 @@
+## v2.0.0
+
+**CleanSlate 2.0** — une version majeure : de nouveaux modules, plus de contrôle, et toujours la même philosophie d'honnêteté technique.
+
+### Nouveautés
+- 💽 **Analyseur d'espace disque** : un nouvel onglet qui scanne un lecteur ou un dossier et liste ses plus gros sous-dossiers et fichiers (façon WinDirStat), avec une barre de taille relative. **Lecture seule** : CleanSlate ne supprime rien ici — un clic ouvre l'emplacement dans l'Explorateur pour agir vous-même. Ignore les liens symboliques (pas de double-comptage) et les dossiers protégés.
+- ⏱️ **Entretien automatique programmé** : sur l'Accueil, activez un entretien récurrent (nettoyage **sûr** + optimisation RAM) toutes les 6, 12, 24 ou 48 h. Il s'exécute en arrière-plan, sans fenêtre, et retient la date du dernier passage. Désactivé par défaut.
+- ↩️ **Windows Debloat réversible** : CleanSlate **sauvegarde désormais l'état d'origine** (valeurs de registre, démarrage des services, tâches planifiées) **avant** chaque modification, et ajoute un bouton **« Tout restaurer »**. Fini le debloat sans retour en arrière — fidèle au contrat de réversibilité du projet. *(Le retrait d'applications préinstallées reste non annulable — réinstallation depuis le Microsoft Store, signalé honnêtement.)*
+- 🧹 **Deux nouvelles catégories de nettoyage** : **Cache de Windows Update** (SoftwareDistribution\\Download — souvent plusieurs Go, utile aussi si une mise à jour est bloquée) et **Vidages mémoire de plantage** (CrashDumps + Minidump — données de diagnostic, décoché par défaut avec avertissement pour ceux qui diagnostiquent un BSOD).
+
+### Interface
+- 🎨 **Refonte visuelle** : palettes sombre et claire modernisées (ardoise profonde + accent indigo / fond doux + bleu net), boutons aux angles arrondis avec états survol/pression, navigation plus lisible.
+
+### Sous le capot
+- 🔌 **Pilotes** : les objets WMI d'inventaire sont désormais libérés proprement (plus de fuite d'objets COM).
+- 🏷️ Version de l'exécutable portée à **2.0.0** dans ses propriétés Windows.
+- ✅ **Tests** : nouveaux tests pour l'analyseur d'espace disque, le planificateur d'entretien, la réversibilité du debloat et l'intégrité des providers de nettoyage.
+
+---
+
 ## v1.5.0
 
 Version de **fiabilité** : une passe d'améliorations sur tout CleanSlate, fidèle à la philosophie « honnêteté technique » — corriger les vrais bugs et ne jamais afficher de chiffre inventé.

@@ -9,6 +9,25 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v2.0.0 (2026-07)\n" +
+        "─────────────────────────────\n" +
+        "CleanSlate 2.0 — version majeure.\n\n" +
+        "Nouveautés :\n" +
+        "• 💽 Analyseur d'espace disque : nouvel onglet qui liste les plus gros\n" +
+        "  dossiers/fichiers d'un lecteur (lecture seule, ouvre l'Explorateur).\n" +
+        "• ⏱️ Entretien automatique programmé (Accueil) : nettoyage sûr + RAM\n" +
+        "  toutes les 6/12/24/48 h, en arrière-plan. Désactivé par défaut.\n" +
+        "• ↩️ Windows Debloat réversible : sauvegarde de l'état d'origine\n" +
+        "  (registre, services, tâches) avant modif + bouton « Tout restaurer ».\n" +
+        "• 🧹 Deux catégories de nettoyage : Cache de Windows Update et\n" +
+        "  Vidages mémoire de plantage (CrashDumps/Minidump).\n\n" +
+        "Interface :\n" +
+        "• 🎨 Refonte visuelle : palettes sombre/claire modernisées, boutons\n" +
+        "  arrondis avec états survol/pression, navigation plus lisible.\n\n" +
+        "Sous le capot : libération propre des objets WMI (pilotes), version\n" +
+        "d'exécutable 2.0.0, nouveaux tests.\n\n" +
+
+        "─────────────────────────────\n" +
         "v1.5.0 (2026-06)\n" +
         "─────────────────────────────\n" +
         "Version de fiabilité — une passe d'améliorations sur tout CleanSlate.\n\n" +
