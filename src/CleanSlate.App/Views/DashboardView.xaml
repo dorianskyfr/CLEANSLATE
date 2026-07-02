@@ -10,12 +10,47 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="Accueil" Style="{StaticResource HeaderText}" Margin="0,0,0,16" />
 
+            <!-- ============================== Santé système ============================== -->
+            <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="20"
+                    Margin="0,0,0,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Pastille de score -->
+                    <Border Grid.Column="0" Width="88" Height="88" CornerRadius="44"
+                            Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Top">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding HealthScoreDisplay}" FontSize="30" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="/100" FontSize="10" Foreground="{DynamicResource MutedBrush}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="❤️ Santé système : " Foreground="{DynamicResource TextBrush}"
+                                       FontWeight="Bold" FontSize="16" />
+                            <TextBlock Text="{Binding HealthRating}" Foreground="{DynamicResource AccentBrush}"
+                                       FontWeight="Bold" FontSize="16" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding HealthTips}" Style="{StaticResource MutedText}"
+                                   Margin="0,8,0,0" MaxWidth="720" HorizontalAlignment="Left"
+                                   Visibility="{Binding HasHealthTips, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <!-- ============================ Entretien en 1 clic ============================ -->
-            <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="20">
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="20">
                 <StackPanel>
                     <TextBlock Text="🧹 Entretien en 1 clic" Foreground="{DynamicResource TextBrush}"
                                FontWeight="Bold" FontSize="16" />
@@ -48,7 +83,7 @@
             </Border>
 
             <!-- ============================== Mon système ============================== -->
-            <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+            <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
                     Padding="20" Margin="0,12,0,0">
                 <StackPanel>
                     <Grid Margin="0,0,0,10">
@@ -58,8 +93,13 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="💻 Mon système" Foreground="{DynamicResource TextBrush}"
                                    FontWeight="Bold" FontSize="16" />
-                        <Button Grid.Column="1" Content="🔄 Actualiser" Style="{StaticResource SecondaryButton}"
-                                Command="{Binding RefreshCommand}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Content="📄 Exporter un rapport" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding ExportReportCommand}"
+                                    ToolTip="Enregistre un rapport système texte (santé, matériel, disques) sur le Bureau." />
+                            <Button Content="🔄 Actualiser" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding RefreshCommand}" />
+                        </StackPanel>
                     </Grid>
 
                     <UniformGrid Columns="2">
@@ -97,7 +137,7 @@
             </Border>
 
             <!-- ================================ Disques ================================ -->
-            <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+            <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
                     Padding="20" Margin="0,12,0,0">
                 <StackPanel>
                     <TextBlock Text="💾 Disques" Foreground="{DynamicResource TextBrush}"

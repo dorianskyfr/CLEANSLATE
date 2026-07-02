@@ -17,7 +17,8 @@ public sealed record SystemOverview(
     int LogicalCores,
     ulong TotalRamBytes,
     TimeSpan Uptime,
-    IReadOnlyList<DriveOverview> Drives);
+    IReadOnlyList<DriveOverview> Drives,
+    uint MemoryLoadPercent = 0);
 
 public interface ISystemInfoService
 {
@@ -39,13 +40,15 @@ public sealed class SystemInfoService : ISystemInfoService
 
     public SystemOverview Read()
     {
+        var mem = _memory.Read();
         return new SystemOverview(
-            OsName:        ReadOsName(),
-            CpuName:       ReadCpuName(),
-            LogicalCores:  Environment.ProcessorCount,
-            TotalRamBytes: _memory.Read().TotalPhysicalBytes,
-            Uptime:        TimeSpan.FromMilliseconds(Environment.TickCount64),
-            Drives:        ReadDrives());
+            OsName:            ReadOsName(),
+            CpuName:           ReadCpuName(),
+            LogicalCores:      Environment.ProcessorCount,
+            TotalRamBytes:     mem.TotalPhysicalBytes,
+            Uptime:            TimeSpan.FromMilliseconds(Environment.TickCount64),
+            Drives:            ReadDrives(),
+            MemoryLoadPercent: mem.MemoryLoadPercent);
     }
 
     private static string ReadOsName()

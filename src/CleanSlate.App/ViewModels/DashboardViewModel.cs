@@ -31,6 +31,9 @@ public sealed class DashboardViewModel : ObservableObject
     private bool _isMaintenanceRunning;
     private bool _autoMaintenanceEnabled;
     private int _autoMaintenanceIntervalHours = 24;
+    private int _healthScore = 100;
+    private string _healthRating = "—";
+    private string _healthTips = string.Empty;
 
     public DashboardViewModel(
         ISystemInfoService systemInfo,
@@ -52,6 +55,7 @@ public sealed class DashboardViewModel : ObservableObject
 
         RefreshCommand = new RelayCommand(Refresh);
         MaintenanceCommand = new AsyncRelayCommand(RunMaintenanceAsync, () => !IsMaintenanceRunning);
+        ExportReportCommand = new RelayCommand(ExportReport);
 
         Refresh();
 
@@ -70,6 +74,7 @@ public sealed class DashboardViewModel : ObservableObject
 
     public RelayCommand RefreshCommand { get; }
     public AsyncRelayCommand MaintenanceCommand { get; }
+    public RelayCommand ExportReportCommand { get; }
 
     public string OsName       { get => _osName;       private set => SetProperty(ref _osName, value); }
     public string CpuName      { get => _cpuName;      private set => SetProperty(ref _cpuName, value); }
@@ -91,6 +96,17 @@ public sealed class DashboardViewModel : ObservableObject
     }
 
     public bool HasUptimeHint => !string.IsNullOrEmpty(_uptimeHint);
+
+    /// <summary>Score de santé /100, agrégé honnêtement (disque, mémoire, uptime).</summary>
+    public int HealthScoreValue { get => _healthScore; private set { if (SetProperty(ref _healthScore, value)) OnPropertyChanged(nameof(HealthScoreDisplay)); } }
+    public string HealthScoreDisplay => $"{_healthScore}";
+    public string HealthRating { get => _healthRating; private set => SetProperty(ref _healthRating, value); }
+    public string HealthTips
+    {
+        get => _healthTips;
+        private set { if (SetProperty(ref _healthTips, value)) OnPropertyChanged(nameof(HasHealthTips)); }
+    }
+    public bool HasHealthTips => !string.IsNullOrEmpty(_healthTips);
 
     public string MaintenanceStatus
     {
@@ -176,6 +192,16 @@ public sealed class DashboardViewModel : ObservableObject
                     $"{FormatBytes(d.FreeBytes)} libres sur {FormatBytes(d.TotalBytes)}",
                     d.UsedPercent));
             }
+
+            // Score de santé : agrégation honnête de signaux réels.
+            double minFree = info.Drives.Count > 0 ? info.Drives.Min(d => 100 - d.UsedPercent) : 100;
+            var health = HealthScore.Evaluate(new HealthInputs(
+                info.Uptime.TotalDays, minFree, info.MemoryLoadPercent));
+            HealthScoreValue = health.Score;
+            HealthRating = health.Rating;
+            HealthTips = health.Tips.Count > 0
+                ? string.Join("\n", health.Tips)
+                : "Tout est au vert. 🎉";
         }
         catch { /* informations partielles : on garde les tirets */ }
 
@@ -243,6 +269,33 @@ public sealed class DashboardViewModel : ObservableObject
         finally
         {
             IsMaintenanceRunning = false;
+        }
+    }
+
+    private void ExportReport()
+    {
+        try
+        {
+            var info = _systemInfo.Read();
+            double minFree = info.Drives.Count > 0 ? info.Drives.Min(d => 100 - d.UsedPercent) : 100;
+            var health = HealthScore.Evaluate(new HealthInputs(
+                info.Uptime.TotalDays, minFree, info.MemoryLoadPercent));
+            var text = SystemReport.Build(info, health, DateTime.Now);
+
+            var dir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (string.IsNullOrEmpty(dir))
+                dir = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+            var path = System.IO.Path.Combine(dir, $"CleanSlate-rapport-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+            System.IO.File.WriteAllText(path, text);
+
+            _dialogs.Info("Rapport exporté", $"Rapport système enregistré :\n{path}");
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); }
+            catch { /* l'ouverture est un confort : le fichier est déjà écrit */ }
+        }
+        catch (Exception ex)
+        {
+            _dialogs.Warn("Export du rapport", ex.Message);
         }
     }
 
