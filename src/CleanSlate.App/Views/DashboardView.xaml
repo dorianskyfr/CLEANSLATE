@@ -28,6 +28,22 @@
                                    FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0"
                                    Visibility="{Binding HasMaintenanceStatus, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
+
+                    <!-- Entretien automatique programmé -->
+                    <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6"
+                            Padding="12,10" Margin="0,14,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox IsChecked="{Binding AutoMaintenanceEnabled}" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding AutoMaintenanceLabel}" TextWrapping="Wrap" MaxWidth="520"
+                                           Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                            </CheckBox>
+                            <ComboBox Width="70" Margin="12,0,0,0" VerticalAlignment="Center"
+                                      ItemsSource="{Binding IntervalOptions}"
+                                      SelectedItem="{Binding AutoMaintenanceIntervalHours, Mode=TwoWay}" />
+                            <TextBlock Text="h" VerticalAlignment="Center" Margin="6,0,0,0"
+                                       Foreground="{DynamicResource MutedBrush}" FontSize="12" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
 

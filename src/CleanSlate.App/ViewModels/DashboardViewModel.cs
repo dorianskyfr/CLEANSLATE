@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using CleanSlate.Core.Modules;
 using CleanSlate.App.Infrastructure;
 
@@ -17,7 +18,9 @@ public sealed class DashboardViewModel : ObservableObject
     private readonly ISystemInfoService _systemInfo;
     private readonly IMaintenanceService _maintenance;
     private readonly IOverclockingAdvisor _gpuDetector;
+    private readonly IAppSettingsService _settings;
     private readonly IDialogService _dialogs;
+    private readonly DispatcherTimer _autoTimer;
 
     private string _osName = "—";
     private string _cpuName = "—";
@@ -26,25 +29,44 @@ public sealed class DashboardViewModel : ObservableObject
     private string _uptimeDisplay = "—";
     private string _maintenanceStatus = string.Empty;
     private bool _isMaintenanceRunning;
+    private bool _autoMaintenanceEnabled;
+    private int _autoMaintenanceIntervalHours = 24;
 
     public DashboardViewModel(
         ISystemInfoService systemInfo,
         IMaintenanceService maintenance,
         IOverclockingAdvisor gpuDetector,
+        IAppSettingsService settings,
         IDialogService dialogs)
     {
         _systemInfo = systemInfo;
         _maintenance = maintenance;
         _gpuDetector = gpuDetector;
+        _settings = settings;
         _dialogs = dialogs;
+
+        var saved = settings.Load();
+        _autoMaintenanceEnabled = saved.AutoMaintenanceEnabled;
+        _autoMaintenanceIntervalHours = saved.AutoMaintenanceIntervalHours is 6 or 12 or 24 or 48
+            ? saved.AutoMaintenanceIntervalHours : 24;
 
         RefreshCommand = new RelayCommand(Refresh);
         MaintenanceCommand = new AsyncRelayCommand(RunMaintenanceAsync, () => !IsMaintenanceRunning);
 
         Refresh();
+
+        // Vérification périodique (toutes les 30 min) : lance l'entretien automatique
+        // si l'intervalle est écoulé. Un premier passage est aussi tenté au démarrage.
+        _autoTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _autoTimer.Tick += async (_, _) => await SafeAutoRunAsync();
+        _autoTimer.Start();
+        _ = SafeAutoRunAsync();
     }
 
     public ObservableCollection<DriveItem> Drives { get; } = new();
+
+    /// <summary>Intervalles proposés pour l'entretien automatique (heures).</summary>
+    public int[] IntervalOptions { get; } = { 6, 12, 24, 48 };
 
     public RelayCommand RefreshCommand { get; }
     public AsyncRelayCommand MaintenanceCommand { get; }
@@ -98,6 +120,39 @@ public sealed class DashboardViewModel : ObservableObject
         "actions sensibles ne sont jamais touchés ici : ils restent un choix explicite " +
         "dans l'onglet Nettoyage.";
 
+    /// <summary>Active l'entretien automatique programmé (persisté entre les sessions).</summary>
+    public bool AutoMaintenanceEnabled
+    {
+        get => _autoMaintenanceEnabled;
+        set
+        {
+            if (SetProperty(ref _autoMaintenanceEnabled, value))
+            {
+                OnPropertyChanged(nameof(AutoMaintenanceLabel));
+                _settings.Save(_settings.Load() with { AutoMaintenanceEnabled = value });
+                _ = SafeAutoRunAsync(); // tente immédiatement si déjà dû
+            }
+        }
+    }
+
+    /// <summary>Intervalle (heures) entre deux entretiens automatiques (persisté).</summary>
+    public int AutoMaintenanceIntervalHours
+    {
+        get => _autoMaintenanceIntervalHours;
+        set
+        {
+            if (SetProperty(ref _autoMaintenanceIntervalHours, value))
+            {
+                OnPropertyChanged(nameof(AutoMaintenanceLabel));
+                _settings.Save(_settings.Load() with { AutoMaintenanceIntervalHours = value });
+            }
+        }
+    }
+
+    public string AutoMaintenanceLabel =>
+        $"Entretien automatique toutes les {_autoMaintenanceIntervalHours} h " +
+        "(nettoyage sûr + optimisation RAM, en arrière-plan)";
+
     private void Refresh()
     {
         try
@@ -132,7 +187,30 @@ public sealed class DashboardViewModel : ObservableObject
         catch { GpuName = "—"; }
     }
 
-    private async Task RunMaintenanceAsync()
+    private Task RunMaintenanceAsync() => ExecuteMaintenanceAsync(silent: false);
+
+    /// <summary>
+    /// Vérifie si un entretien automatique est dû et, le cas échéant, le lance
+    /// silencieusement (sans fenêtre). N'échoue jamais bruyamment (tick de timer).
+    /// </summary>
+    private async Task SafeAutoRunAsync()
+    {
+        try
+        {
+            if (IsMaintenanceRunning) return;
+            var s = _settings.Load();
+            if (!MaintenanceScheduler.ShouldRun(
+                    s.AutoMaintenanceEnabled, s.AutoMaintenanceIntervalHours,
+                    s.LastAutoMaintenanceUtc, DateTime.UtcNow))
+                return;
+
+            await ExecuteMaintenanceAsync(silent: true);
+            _settings.Save(_settings.Load() with { LastAutoMaintenanceUtc = DateTime.UtcNow });
+        }
+        catch { /* entretien automatique best-effort : jamais de crash */ }
+    }
+
+    private async Task ExecuteMaintenanceAsync(bool silent)
     {
         IsMaintenanceRunning = true;
         try
@@ -140,20 +218,27 @@ public sealed class DashboardViewModel : ObservableObject
             var progress = new Progress<string>(msg => MaintenanceStatus = msg);
             var report = await _maintenance.RunAsync(progress, CancellationToken.None);
 
+            var prefix = silent ? "[Auto] " : string.Empty;
             MaintenanceStatus =
-                $"Entretien terminé : {FormatBytes(report.FreedBytes)} libérés " +
+                $"{prefix}Entretien terminé : {FormatBytes(report.FreedBytes)} libérés " +
                 $"({report.DeletedCount} élément(s) supprimé(s)" +
                 (report.FailedCount > 0 ? $", {report.FailedCount} échec(s)" : "") + ").";
 
-            var details = string.Join("\n", report.Steps.Select(s => $"• {s.Label} : {s.Detail}"));
-            _dialogs.Info("Entretien en 1 clic", $"Bilan :\n\n{details}");
+            if (!silent)
+            {
+                var details = string.Join("\n", report.Steps.Select(s => $"• {s.Label} : {s.Detail}"));
+                _dialogs.Info("Entretien en 1 clic", $"Bilan :\n\n{details}");
+            }
 
             Refresh();
         }
         catch (Exception ex)
         {
-            MaintenanceStatus = string.Empty;
-            _dialogs.Warn("Entretien en 1 clic", ex.Message);
+            if (!silent)
+            {
+                MaintenanceStatus = string.Empty;
+                _dialogs.Warn("Entretien en 1 clic", ex.Message);
+            }
         }
         finally
         {

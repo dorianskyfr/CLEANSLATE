@@ -79,7 +79,7 @@ public partial class App : Application
 
         _ = gameMode.TryRecoverAsync(CancellationToken.None);
 
-        var dashboardVm    = new DashboardViewModel(systemInfo, maintenance, overclocking, dialogs);
+        var dashboardVm    = new DashboardViewModel(systemInfo, maintenance, overclocking, settingsSvc, dialogs);
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
         var memoryVm       = new MemoryViewModel(memoryMonitor, settingsSvc, dialogs);
         var driversVm      = new DriversViewModel(dialogs);

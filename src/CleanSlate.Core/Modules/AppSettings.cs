@@ -36,6 +36,15 @@ public sealed record AppSettings
 
     /// <summary>Fournisseur DNS choisi pour le blocage de pub (id, ex. « adguard »).</summary>
     public string AdBlockProvider { get; init; } = "adguard";
+
+    /// <summary>Entretien automatique programmé (nettoyage sûr + optimisation RAM) à intervalle régulier.</summary>
+    public bool AutoMaintenanceEnabled { get; init; }
+
+    /// <summary>Intervalle (heures) entre deux entretiens automatiques.</summary>
+    public int AutoMaintenanceIntervalHours { get; init; } = 24;
+
+    /// <summary>Date/heure UTC du dernier entretien automatique effectué.</summary>
+    public DateTime LastAutoMaintenanceUtc { get; init; }
 }
 
 public interface IAppSettingsService
