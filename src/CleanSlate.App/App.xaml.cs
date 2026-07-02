@@ -72,6 +72,7 @@ public partial class App : Application
         IMaintenanceService maintenance    = new MaintenanceService(engine, memoryMonitor);
         IDlssEnablerService dlssEnabler    = new DlssEnablerService();
         IDiskAnalyzer diskAnalyzerSvc      = new DiskAnalyzer();
+        IDuplicateFinder duplicateFinder   = new DuplicateFinder();
 
         // Nettoyage de l'ancien blocage par fichier hosts (versions <= v0.9.2),
         // qui rendait le PC très lent et ne pouvait être désactivé sans Mode sans échec.
@@ -83,7 +84,7 @@ public partial class App : Application
         var cleaningVm     = new CleaningViewModel(engine, dialogs);
         var memoryVm       = new MemoryViewModel(memoryMonitor, settingsSvc, dialogs);
         var driversVm      = new DriversViewModel(dialogs);
-        var diskAnalyzerVm = new DiskAnalyzerViewModel(diskAnalyzerSvc, dialogs);
+        var diskAnalyzerVm = new DiskAnalyzerViewModel(diskAnalyzerSvc, duplicateFinder, dialogs);
         var gameModeVm     = new GameModeViewModel(gameMode, overclocking, gpuOverclocker, driverChecker, dlssEnabler, settingsSvc, dialogs);
         var optimizationVm = new OptimizationViewModel(startupManager, registryCleaner, backupService, debloater, dialogs);
         var quickRepairVm  = new QuickRepairViewModel(repairSvc, dialogs);

@@ -7,87 +7,155 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Analyseur d'espace disque" Style="{StaticResource HeaderText}" />
+        <TextBlock Grid.Row="0" Text="Espace disque" Style="{StaticResource HeaderText}" />
 
-        <!-- Barre d'action : lecteur + chemin + analyser -->
+        <!-- Barre commune : lecteur + chemin -->
         <Grid Grid.Row="1" Margin="0,16,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-
             <ComboBox Grid.Column="0" Width="90" VerticalContentAlignment="Center"
                       ItemsSource="{Binding Drives}" SelectedItem="{Binding SelectedPath, Mode=TwoWay}" />
-
-            <TextBox Grid.Column="1" Margin="8,0,8,0" Padding="8,6" VerticalContentAlignment="Center"
+            <TextBox Grid.Column="1" Margin="8,0,0,0" Padding="8,6" VerticalContentAlignment="Center"
                      Text="{Binding SelectedPath, UpdateSourceTrigger=PropertyChanged}"
                      ToolTip="Lecteur ou dossier à analyser (modifiable)." />
-
-            <Button Grid.Column="2" Content="🔎 Analyser" Style="{StaticResource AccentButton}"
-                    Command="{Binding AnalyzeCommand}" />
         </Grid>
 
-        <!-- Note honnête -->
-        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                Padding="16" Margin="0,16,0,0">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="ℹ️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Top" />
-                <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="760" />
-            </StackPanel>
-        </Border>
+        <TabControl Grid.Row="2" Margin="0,16,0,0" Background="Transparent" BorderThickness="0">
 
-        <!-- Statut -->
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Style="{StaticResource MutedText}"
-                   Margin="2,12,0,0" TextWrapping="Wrap" />
+            <!-- ============================= Onglet Espace ============================= -->
+            <TabItem Header="📊 Plus gros éléments">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-        <!-- Résultats -->
-        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0"
-                      Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}">
-            <ItemsControl ItemsSource="{Binding Results}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
-                                Padding="10,8" Margin="0,0,0,6">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                    <Button Grid.Row="0" Content="🔎 Analyser" Style="{StaticResource AccentButton}"
+                            HorizontalAlignment="Left" Command="{Binding AnalyzeCommand}" />
 
-                                <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="16"
-                                           Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                            Padding="16" Margin="0,12,0,0">
+                        <TextBlock Text="{Binding HonestNotice}" Style="{StaticResource MutedText}" MaxWidth="760" />
+                    </Border>
 
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}"
-                                               FontSize="13" TextTrimming="CharacterEllipsis" />
-                                    <ProgressBar Height="6" Minimum="0" Maximum="100" Margin="0,6,0,0"
-                                                 Value="{Binding BarPercent, Mode=OneWay}"
-                                                 Background="{DynamicResource BackgroundBrush}"
-                                                 Foreground="{DynamicResource AccentBrush}" BorderThickness="0" />
-                                </StackPanel>
+                    <TextBlock Grid.Row="2" Text="{Binding Status}" Style="{StaticResource MutedText}"
+                               Margin="2,12,0,0" TextWrapping="Wrap" />
 
-                                <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}" Margin="14,0,10,0"
-                                           VerticalAlignment="Center" FontWeight="Bold"
-                                           Foreground="{DynamicResource TextBrush}" />
+                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0"
+                                  Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding Results}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                                            Padding="10,8" Margin="0,0,0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="16"
+                                                       Margin="0,0,10,0" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                <ProgressBar Height="6" Minimum="0" Maximum="100" Margin="0,6,0,0"
+                                                             Value="{Binding BarPercent, Mode=OneWay}"
+                                                             Background="{DynamicResource BackgroundBrush}"
+                                                             Foreground="{DynamicResource AccentBrush}" BorderThickness="0" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}" Margin="14,0,10,0"
+                                                       VerticalAlignment="Center" FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <Button Grid.Column="3" Content="Ouvrir ↗" Style="{StaticResource SecondaryButton}"
+                                                    FontSize="11" Padding="8,4" VerticalAlignment="Center"
+                                                    Command="{Binding DataContext.OpenCommand,
+                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
 
-                                <Button Grid.Column="3" Content="Ouvrir ↗" Style="{StaticResource SecondaryButton}"
-                                        FontSize="11" Padding="8,4" VerticalAlignment="Center"
-                                        Command="{Binding DataContext.OpenCommand,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+            <!-- ============================ Onglet Doublons ============================ -->
+            <TabItem Header="🔍 Doublons">
+                <Grid Margin="0,16,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <TextBlock Text="Taille min. :" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MutedBrush}" Margin="0,0,8,0" />
+                        <ComboBox Width="90" VerticalContentAlignment="Center"
+                                  ItemsSource="{Binding MinSizeLabels}"
+                                  SelectedItem="{Binding SelectedMinSizeLabel, Mode=TwoWay}" />
+                        <Button Content="🔍 Chercher les doublons" Style="{StaticResource AccentButton}"
+                                Margin="10,0,0,0" Command="{Binding FindDuplicatesCommand}" />
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                            Padding="16" Margin="0,12,0,0">
+                        <TextBlock Text="{Binding DuplicateNotice}" Style="{StaticResource MutedText}" MaxWidth="760" />
+                    </Border>
+
+                    <TextBlock Grid.Row="2" Text="{Binding DuplicateStatus}" Style="{StaticResource MutedText}"
+                               Margin="2,12,0,0" TextWrapping="Wrap" />
+
+                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0"
+                                  Visibility="{Binding HasDuplicates, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding Duplicates}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                                            Padding="12,10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Header}" FontWeight="Bold"
+                                                       Foreground="{DynamicResource AccentBrush}" FontSize="13" />
+                                            <ItemsControl ItemsSource="{Binding Files}" Margin="0,6,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,3,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                                       Foreground="{DynamicResource TextBrush}" FontSize="12"
+                                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                            <Button Grid.Column="1" Content="Ouvrir ↗"
+                                                                    Style="{StaticResource SecondaryButton}"
+                                                                    FontSize="11" Padding="8,3" Margin="8,0,0,0"
+                                                                    Command="{Binding DataContext.OpenPathCommand,
+                                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

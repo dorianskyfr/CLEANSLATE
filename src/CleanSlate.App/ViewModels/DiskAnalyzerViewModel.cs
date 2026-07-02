@@ -27,6 +27,20 @@ public sealed class DiskUsageRowViewModel : ObservableObject
     public string Icon        { get; }
 }
 
+/// <summary>Un groupe de fichiers identiques dans l'onglet « Doublons ».</summary>
+public sealed class DuplicateGroupViewModel
+{
+    public DuplicateGroupViewModel(DuplicateGroup group)
+    {
+        Header = $"{group.Files.Count} copies × {FileActionLogger.FormatBytes(group.SizeBytes)} " +
+                 $"— {FileActionLogger.FormatBytes(group.WastedBytes)} récupérables";
+        Files = group.Files.Select(f => f.Path).ToList();
+    }
+
+    public string Header { get; }
+    public IReadOnlyList<string> Files { get; }
+}
+
 /// <summary>
 /// Analyseur d'espace disque (lecture seule) : choisissez un lecteur ou un dossier,
 /// CleanSlate liste ses plus gros sous-dossiers/fichiers pour trouver ce qui remplit
@@ -36,6 +50,7 @@ public sealed class DiskUsageRowViewModel : ObservableObject
 public sealed class DiskAnalyzerViewModel : ObservableObject
 {
     private readonly IDiskAnalyzer _analyzer;
+    private readonly IDuplicateFinder _duplicateFinder;
     private readonly IDialogService _dialogs;
 
     private string _selectedPath;
@@ -43,35 +58,60 @@ public sealed class DiskAnalyzerViewModel : ObservableObject
     private string _totalDisplay = "—";
     private bool _isBusy;
 
-    public DiskAnalyzerViewModel(IDiskAnalyzer analyzer, IDialogService dialogs)
+    private string _duplicateStatus = "Choisissez une taille minimale, puis cherchez les doublons.";
+    private string _wastedDisplay = "—";
+    private string _selectedMinSizeLabel = "1 Mo";
+
+    public DiskAnalyzerViewModel(IDiskAnalyzer analyzer, IDuplicateFinder duplicateFinder, IDialogService dialogs)
     {
         _analyzer = analyzer;
+        _duplicateFinder = duplicateFinder;
         _dialogs  = dialogs;
 
         Drives = new ObservableCollection<string>(GetFixedDrives());
         _selectedPath = Drives.FirstOrDefault() ?? @"C:\";
 
-        AnalyzeCommand = new AsyncRelayCommand(AnalyzeAsync, () => !IsBusy);
-        OpenCommand    = new RelayCommand<DiskUsageRowViewModel>(Open);
+        AnalyzeCommand        = new AsyncRelayCommand(AnalyzeAsync, () => !IsBusy);
+        FindDuplicatesCommand = new AsyncRelayCommand(FindDuplicatesAsync, () => !IsBusy);
+        OpenCommand           = new RelayCommand<DiskUsageRowViewModel>(Open);
+        OpenPathCommand       = new RelayCommand<string>(OpenPath);
     }
 
     public ObservableCollection<string> Drives { get; }
     public ObservableCollection<DiskUsageRowViewModel> Results { get; } = new();
+    public ObservableCollection<DuplicateGroupViewModel> Duplicates { get; } = new();
 
     public string SelectedPath { get => _selectedPath; set => SetProperty(ref _selectedPath, value); }
     public string Status       { get => _status;       private set => SetProperty(ref _status, value); }
     public string TotalDisplay { get => _totalDisplay; private set => SetProperty(ref _totalDisplay, value); }
 
+    public string DuplicateStatus { get => _duplicateStatus; private set => SetProperty(ref _duplicateStatus, value); }
+    public string WastedDisplay   { get => _wastedDisplay;   private set => SetProperty(ref _wastedDisplay, value); }
+
+    /// <summary>Tailles minimales proposées pour la recherche de doublons.</summary>
+    public string[] MinSizeLabels { get; } = { "100 Ko", "1 Mo", "10 Mo", "100 Mo" };
+    public string SelectedMinSizeLabel { get => _selectedMinSizeLabel; set => SetProperty(ref _selectedMinSizeLabel, value); }
+
     public bool IsBusy
     {
         get => _isBusy;
-        private set { if (SetProperty(ref _isBusy, value)) AnalyzeCommand.RaiseCanExecuteChanged(); }
+        private set
+        {
+            if (SetProperty(ref _isBusy, value))
+            {
+                AnalyzeCommand.RaiseCanExecuteChanged();
+                FindDuplicatesCommand.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     public bool HasResults => Results.Count > 0;
+    public bool HasDuplicates => Duplicates.Count > 0;
 
     public AsyncRelayCommand AnalyzeCommand { get; }
+    public AsyncRelayCommand FindDuplicatesCommand { get; }
     public ICommand OpenCommand { get; }
+    public ICommand OpenPathCommand { get; }
 
     public string HonestNotice =>
         "Analyse en LECTURE SEULE : CleanSlate calcule la taille de chaque sous-dossier et " +
@@ -118,15 +158,81 @@ public sealed class DiskAnalyzerViewModel : ObservableObject
         }
     }
 
+    public string DuplicateNotice =>
+        "Recherche de doublons par CONTENU (empreinte SHA-256), pas seulement par nom : deux " +
+        "fichiers ne sont regroupés que s'ils sont strictement identiques. Lecture seule — " +
+        "CleanSlate ne supprime rien. Ouvrez chaque copie pour décider laquelle garder.";
+
+    private async Task FindDuplicatesAsync()
+    {
+        var path = SelectedPath?.Trim() ?? string.Empty;
+        if (!Directory.Exists(path))
+        {
+            DuplicateStatus = "Cet emplacement n'existe pas ou n'est pas accessible.";
+            return;
+        }
+
+        IsBusy = true;
+        Duplicates.Clear();
+        OnPropertyChanged(nameof(HasDuplicates));
+        WastedDisplay = "—";
+        DuplicateStatus = "Recherche des doublons en cours…";
+
+        var progress = new Progress<string>(m => DuplicateStatus = m);
+        try
+        {
+            var report = await _duplicateFinder.FindAsync(
+                path, LabelToBytes(SelectedMinSizeLabel), progress, CancellationToken.None);
+
+            foreach (var g in report.Groups)
+                Duplicates.Add(new DuplicateGroupViewModel(g));
+
+            WastedDisplay = FileActionLogger.FormatBytes(report.TotalWastedBytes);
+            DuplicateStatus = report.Groups.Count == 0
+                ? $"Aucun doublon (≥ {SelectedMinSizeLabel}) trouvé — {report.FilesScanned} fichier(s) comparés."
+                : $"{report.Groups.Count} groupe(s) de doublons — {WastedDisplay} récupérables au total.";
+        }
+        catch (Exception ex)
+        {
+            DuplicateStatus = $"Échec de la recherche : {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasDuplicates));
+        }
+    }
+
+    private static long LabelToBytes(string label) => label switch
+    {
+        "100 Ko" => 100_000,
+        "10 Mo"  => 10_000_000,
+        "100 Mo" => 100_000_000,
+        _        => 1_000_000, // « 1 Mo » par défaut
+    };
+
     private void Open(DiskUsageRowViewModel? row)
     {
         if (row is null) return;
+        if (row.Entry.IsDirectory)
+            OpenInShell(row.Path, isDirectory: true);
+        else
+            OpenInShell(row.Path, isDirectory: false);
+    }
+
+    private void OpenPath(string? path)
+    {
+        if (!string.IsNullOrWhiteSpace(path)) OpenInShell(path!, isDirectory: false);
+    }
+
+    private void OpenInShell(string path, bool isDirectory)
+    {
         try
         {
-            if (row.Entry.IsDirectory)
-                Process.Start(new ProcessStartInfo(row.Path) { UseShellExecute = true });
+            if (isDirectory)
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             else
-                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{row.Path}\"") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
         }
         catch (Exception ex)
         {
