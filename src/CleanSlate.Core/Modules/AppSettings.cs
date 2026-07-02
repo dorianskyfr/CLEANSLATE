@@ -91,6 +91,17 @@ public sealed class AppSettingsService : IAppSettingsService
                     WindowHeight = defaults.WindowHeight,
                 };
             }
+
+            // Garde-fous sur les valeurs numériques (fichier édité à la main, ancienne
+            // version…) : un seuil ou un intervalle aberrant ne doit pas déclencher un
+            // comportement inattendu (optimisation en boucle, intervalle nul…).
+            loaded = loaded with
+            {
+                AutoMemoryOptimizeThreshold = Math.Clamp(loaded.AutoMemoryOptimizeThreshold, 50, 99),
+                AutoMaintenanceIntervalHours =
+                    loaded.AutoMaintenanceIntervalHours is 6 or 12 or 24 or 48
+                        ? loaded.AutoMaintenanceIntervalHours : 24,
+            };
             return loaded;
         }
         catch { return new AppSettings(); }

@@ -194,39 +194,54 @@ public sealed class QuickRepairService : IQuickRepairService
 
     private static void CheckSfcStatus(RepairCheck check)
     {
-        // Cherche dans l'event log si SFC a signalé des erreurs récemment
+        // Cherche dans l'event log si des erreurs système ont été signalées récemment.
+        // On parcourt du plus RÉCENT au plus ancien et on s'arrête dès qu'on sort de la
+        // fenêtre de 7 jours — au lieu d'énumérer tout le journal en mémoire (lent).
         try
         {
             using var log = new EventLog("System");
-            var recent = log.Entries.Cast<EventLogEntry>()
-                .Where(e => e.TimeGenerated > DateTime.Now.AddDays(-7)
-                         && e.Source == "Microsoft-Windows-WER-SystemErrorReporting"
-                         && e.EntryType == EventLogEntryType.Error)
-                .Take(5)
-                .ToList();
-            if (recent.Count == 0) { check.Status = RepairStatus.Good; check.Detail = "Aucune erreur système récente détectée (7 derniers jours)."; }
-            else { check.Status = RepairStatus.Warning; check.Detail = $"{recent.Count} erreur(s) système détectée(s) ces 7 derniers jours."; }
+            var cutoff = DateTime.Now.AddDays(-7);
+            var entries = log.Entries;
+            int count = entries.Count;
+            int found = 0;
+
+            for (int i = count - 1; i >= 0 && found < 5; i--)
+            {
+                EventLogEntry e;
+                try { e = entries[i]; } catch { continue; }
+                if (e.TimeGenerated < cutoff) break; // au-delà de la fenêtre : inutile de continuer
+                if (e.EntryType == EventLogEntryType.Error &&
+                    e.Source == "Microsoft-Windows-WER-SystemErrorReporting")
+                    found++;
+            }
+
+            if (found == 0) { check.Status = RepairStatus.Good; check.Detail = "Aucune erreur système récente détectée (7 derniers jours)."; }
+            else { check.Status = RepairStatus.Warning; check.Detail = $"{found} erreur(s) système détectée(s) ces 7 derniers jours."; }
         }
         catch { check.Status = RepairStatus.Good; check.Detail = "Vérification de l'event log non disponible."; }
     }
 
     // ---- Réparations ----
 
-    private static async Task RepairTempAsync(RepairCheck check, IProgress<string>? progress, CancellationToken ct)
+    private static Task RepairTempAsync(RepairCheck check, IProgress<string>? progress, CancellationToken ct)
     {
         progress?.Report("Nettoyage des fichiers temporaires…");
-        long freed = 0;
-        foreach (var folder in new[] { Path.GetTempPath(), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp") })
+        // La suppression est faite sur un thread de fond (et non sur le thread appelant,
+        // potentiellement le thread UI) : sinon l'interface se figeait pendant le nettoyage.
+        return Task.Run(() =>
         {
-            ct.ThrowIfCancellationRequested();
-            foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+            long freed = 0;
+            foreach (var folder in new[] { Path.GetTempPath(), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp") })
             {
-                try { var len = new FileInfo(file).Length; File.Delete(file); freed += len; } catch { }
+                ct.ThrowIfCancellationRequested();
+                foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+                {
+                    try { var len = new FileInfo(file).Length; File.Delete(file); freed += len; } catch { }
+                }
             }
-        }
-        check.Status = RepairStatus.Good;
-        check.Detail = $"Nettoyage terminé : {freed / 1024 / 1024} Mo libérés.";
-        await Task.CompletedTask;
+            check.Status = RepairStatus.Good;
+            check.Detail = $"Nettoyage terminé : {freed / 1024 / 1024} Mo libérés.";
+        }, ct);
     }
 
     private static async Task RepairWuservAsync(RepairCheck check, IProgress<string>? progress, CancellationToken ct)
@@ -277,12 +292,15 @@ public sealed class QuickRepairService : IQuickRepairService
         progress?.Report("Lancement de SFC /scannow (peut prendre 10-15 min)…");
         await Task.Run(() =>
         {
+            // CleanSlate tourne déjà en administrateur (manifeste requireAdministrator),
+            // donc sfc hérite de l'élévation. On NE met PAS Verb="runas" : ce verbe exige
+            // UseShellExecute=true, incompatible avec la redirection de sortie — la
+            // combinaison précédente était contradictoire et le verbe était ignoré.
             var psi = new ProcessStartInfo("sfc", "/scannow")
             {
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 CreateNoWindow = true,
-                Verb = "runas",
             };
             try
             {
