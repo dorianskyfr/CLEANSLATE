@@ -9,6 +9,23 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string PatchNotes =
         "─────────────────────────────\n" +
+        "v2.5.0 (2026-07)\n" +
+        "─────────────────────────────\n" +
+        "Nouveautés :\n" +
+        "• 🔍 Détecteur de doublons (onglet Espace disque) : trouve les fichiers\n" +
+        "  identiques par CONTENU (empreinte SHA-256), avec l'espace récupérable.\n" +
+        "  Lecture seule — vous décidez quoi supprimer.\n" +
+        "• ❤️ Score de santé système (Accueil) : une note /100 honnête, agrégée\n" +
+        "  à partir de l'espace disque, la charge RAM et l'uptime, avec conseils.\n" +
+        "• 📄 Rapport système exportable : bouton « Exporter un rapport » qui\n" +
+        "  enregistre un rapport texte sur le Bureau (dépannage/support).\n\n" +
+        "Corrections :\n" +
+        "• 🛠️ Réparation rapide : nettoyage des temporaires en arrière-plan\n" +
+        "  (l'UI ne se fige plus), scan du journal d'événements optimisé, et\n" +
+        "  correctif SFC (plus de conflit runas / redirection de sortie).\n" +
+        "• 🔒 Garde-fous sur les préférences (seuils/intervalles) au chargement.\n\n" +
+
+        "─────────────────────────────\n" +
         "v2.0.0 (2026-07)\n" +
         "─────────────────────────────\n" +
         "CleanSlate 2.0 — version majeure.\n\n" +

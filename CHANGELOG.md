@@ -1,3 +1,22 @@
+## v2.5.0
+
+**CleanSlate 2.5** — encore plus d'outils utiles, et une chasse aux bugs continue.
+
+### Nouveautés
+- 🔍 **Détecteur de doublons** : dans l'onglet Espace disque, un second onglet trouve les fichiers **strictement identiques** — comparaison par **contenu** (empreinte SHA-256), pas seulement par nom. Deux passes pour rester rapide (regroupement par taille, puis empreinte). Affiche l'espace récupérable par groupe, avec un filtre de taille minimale. **Lecture seule** : ouvrez chaque copie pour décider laquelle garder.
+- ❤️ **Score de santé système** : sur l'Accueil, une note /100 **honnête et transparente** — pas de magie, juste l'agrégation de signaux réels (espace disque, charge mémoire, temps depuis le dernier redémarrage), chacun accompagné d'un conseil actionnable.
+- 📄 **Rapport système exportable** : un bouton **« Exporter un rapport »** enregistre sur le Bureau un rapport texte lisible (santé, matériel, disques, conseils) — pratique pour du dépannage ou pour demander de l'aide.
+
+### Corrections
+- 🛠️ **Réparation rapide — plusieurs bugs corrigés** : le nettoyage des temporaires s'exécute désormais en arrière-plan (l'interface ne se fige plus) ; la détection d'erreurs système parcourt le journal du plus récent au plus ancien avec arrêt anticipé (au lieu de tout charger en mémoire) ; SFC ne mélange plus `runas` et redirection de sortie (l'application est déjà administrateur).
+- 🔒 **Garde-fous sur les préférences** : un seuil ou un intervalle aberrant (fichier de config édité à la main) est ramené à une valeur sûre au chargement.
+
+### Sous le capot
+- 🏷️ Version portée à **2.5.0**.
+- ✅ **Tests** : détecteur de doublons, score de santé, rapport système.
+
+---
+
 ## v2.0.0
 
 **CleanSlate 2.0** — une version majeure : de nouveaux modules, plus de contrôle, et toujours la même philosophie d'honnêteté technique.
