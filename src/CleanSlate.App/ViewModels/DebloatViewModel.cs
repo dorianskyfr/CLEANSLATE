@@ -58,6 +58,7 @@ public sealed class DebloatViewModel : ObservableObject
         ApplyCommand        = new AsyncRelayCommand(ApplyAsync, () => !IsBusy);
         SelectAllCommand    = new RelayCommand(() => SetAll(true),  () => !IsBusy);
         SelectNoneCommand   = new RelayCommand(() => SetAll(false), () => !IsBusy);
+        RevertCommand       = new AsyncRelayCommand(RevertAsync, () => !IsBusy && CanRevert);
     }
 
     public ObservableCollection<DebloatOptionViewModel> Options { get; } = new();
@@ -66,6 +67,10 @@ public sealed class DebloatViewModel : ObservableObject
     public AsyncRelayCommand ApplyCommand      { get; }
     public RelayCommand      SelectAllCommand  { get; }
     public RelayCommand      SelectNoneCommand { get; }
+    public AsyncRelayCommand RevertCommand     { get; }
+
+    /// <summary>Vrai si une sauvegarde existe : le bouton « Tout restaurer » est alors actif.</summary>
+    public bool CanRevert => _debloater.HasBackup;
 
     public bool IsBusy
     {
@@ -77,8 +82,15 @@ public sealed class DebloatViewModel : ObservableObject
                 ApplyCommand.RaiseCanExecuteChanged();
                 SelectAllCommand.RaiseCanExecuteChanged();
                 SelectNoneCommand.RaiseCanExecuteChanged();
+                RevertCommand.RaiseCanExecuteChanged();
             }
         }
+    }
+
+    private void RefreshRevertState()
+    {
+        OnPropertyChanged(nameof(CanRevert));
+        RevertCommand.RaiseCanExecuteChanged();
     }
 
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
@@ -127,7 +139,8 @@ public sealed class DebloatViewModel : ObservableObject
             _dialogs.Info("Debloat terminé",
                 $"{result.Applied} optimisation(s) appliquée(s)" +
                 (result.Failed > 0 ? $", {result.Failed} échec(s)." : ".") +
-                "\n\nUn redémarrage peut être nécessaire pour tout finaliser.");
+                "\n\nUn redémarrage peut être nécessaire pour tout finaliser.\n" +
+                "Vous pourrez tout annuler via « ↩️ Tout restaurer ».");
         }
         catch (Exception ex)
         {
@@ -137,6 +150,46 @@ public sealed class DebloatViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            RefreshRevertState();
+        }
+    }
+
+    private async Task RevertAsync()
+    {
+        var confirmed = _dialogs.Confirm(
+            "Tout restaurer",
+            "Restaurer l'état d'origine sauvegardé avant le debloat (valeurs de registre, " +
+            "démarrage des services, tâches planifiées) ?\n\n" +
+            "Note : le retrait d'applications préinstallées n'est pas annulable — " +
+            "réinstallez-les depuis le Microsoft Store si besoin.");
+        if (!confirmed) return;
+
+        IsBusy = true;
+        ResultMessages.Clear();
+        Status = "Restauration en cours…";
+
+        try
+        {
+            var progress = new Progress<string>(msg => Status = msg);
+            var result = await _debloater.RevertAsync(progress, CancellationToken.None);
+
+            foreach (var m in result.Messages) ResultMessages.Add(m);
+            Status = $"Restauration terminée : {result.Applied} restauré(s)" +
+                     (result.Failed > 0 ? $", {result.Failed} échec(s)." : ".");
+            _dialogs.Info("Restauration terminée",
+                $"{result.Applied} élément(s) restauré(s)" +
+                (result.Failed > 0 ? $", {result.Failed} échec(s)." : ".") +
+                "\n\nUn redémarrage peut être nécessaire.");
+        }
+        catch (Exception ex)
+        {
+            _dialogs.Warn("Restauration", ex.Message);
+            Status = "Erreur pendant la restauration.";
+        }
+        finally
+        {
+            IsBusy = false;
+            RefreshRevertState();
         }
     }
 }

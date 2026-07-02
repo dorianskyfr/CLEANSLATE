@@ -187,9 +187,14 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <Button Grid.Row="4" Content="Appliquer la sélection" Style="{StaticResource AccentButton}"
-                            HorizontalAlignment="Right" Margin="0,12,0,0"
-                            Command="{Binding ApplyCommand}" />
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <Button Content="↩️ Tout restaurer" Style="{StaticResource SecondaryButton}"
+                                Margin="0,0,8,0"
+                                Command="{Binding RevertCommand}"
+                                ToolTip="Restaure l'état d'origine sauvegardé avant le debloat (registre, services, tâches planifiées)." />
+                        <Button Content="Appliquer la sélection" Style="{StaticResource AccentButton}"
+                                Command="{Binding ApplyCommand}" />
+                    </StackPanel>
                 </Grid>
             </TabItem>
         </TabControl>
